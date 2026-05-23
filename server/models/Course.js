@@ -33,7 +33,7 @@ const Course = sequelize.define('Course', {
     defaultValue: 'beginner'
   },
   status: {
-    type: DataTypes.ENUM('active', 'draft', 'archived'),
+    type: DataTypes.ENUM('published', 'draft', 'archived'),
     defaultValue: 'draft'
   },
   instructor_name: {

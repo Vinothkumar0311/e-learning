@@ -1,153 +1,157 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  DollarSign, 
-  BookOpen, 
-  Clock,
-  ArrowRight,
-  PlayCircle,
-  FileText,
-  Plus
+import { useNavigate } from 'react-router-dom';
+import {
+  TrendingUp, Users, DollarSign, BookOpen, Clock,
+  ArrowRight, PlayCircle, FileText, Plus, Loader2, UserCheck, AlertCircle
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Cell
 } from 'recharts';
-import { dashboardStats, recentEnrollments, upcomingClasses } from '../data/mockData';
+import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
 
-const data = [
-  { name: 'Jan', revenue: 4000, students: 2400 },
-  { name: 'Feb', revenue: 3000, students: 1398 },
-  { name: 'Mar', revenue: 2000, students: 9800 },
-  { name: 'Apr', revenue: 2780, students: 3908 },
-  { name: 'May', revenue: 1890, students: 4800 },
-  { name: 'Jun', revenue: 2390, students: 3800 },
-  { name: 'Jul', revenue: 3490, students: 4300 },
+const CHART_DATA = [
+  { name: 'Jan', revenue: 4000, students: 12 },
+  { name: 'Feb', revenue: 6000, students: 20 },
+  { name: 'Mar', revenue: 5200, students: 17 },
+  { name: 'Apr', revenue: 8100, students: 30 },
+  { name: 'May', revenue: 7500, students: 25 },
+  { name: 'Jun', revenue: 9200, students: 35 },
+  { name: 'Jul', revenue: 11000, students: 41 },
 ];
 
+const StatCard = ({ title, value, icon, color, delay, prefix = '' }) => (
+  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}
+    className="glass-card p-6 rounded-2xl group hover:scale-[1.02] transition-all duration-300 cursor-pointer">
+    <div className="flex items-center justify-between">
+      <span className="text-sm font-medium text-muted-foreground">{title}</span>
+      <div className={cn('p-2 rounded-lg bg-background/50 border border-border group-hover:scale-110 transition-transform', color)}>
+        {icon}
+      </div>
+    </div>
+    <div className="mt-4">
+      <h3 className="text-2xl font-bold">{value === null ? <Loader2 size={22} className="animate-spin text-primary" /> : `${prefix}${(value ?? 0).toLocaleString()}`}</h3>
+      <div className="flex items-center gap-1 text-xs mt-1 font-medium text-green-500">
+        <TrendingUp size={12} />
+        <span>Live data</span>
+      </div>
+    </div>
+  </motion.div>
+);
+
+const STATUS_STYLE = {
+  pending: 'bg-yellow-500/10 text-yellow-500',
+  enrolled: 'bg-green-500/10 text-green-500',
+  rejected: 'bg-red-500/10 text-red-500',
+};
+
 const Dashboard = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
+  const [recentEnrollments, setRecentEnrollments] = useState([]);
+  const [upcomingClasses, setUpcomingClasses] = useState([]);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const [statsRes, enrollRes, classRes] = await Promise.all([
+          api.get('/dashboard/stats'),
+          api.get('/dashboard/recent-enrollments'),
+          api.get('/dashboard/upcoming-classes'),
+        ]);
+        setStats(statsRes.data.data);
+        setRecentEnrollments(enrollRes.data.data);
+        setUpcomingClasses(classRes.data.data);
+      } catch (err) {
+        console.error('Dashboard load error:', err);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    fetchAll();
+  }, []);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-          <p className="text-muted-foreground mt-1">Welcome back, here's what's happening today.</p>
+          <p className="text-muted-foreground mt-1">
+            Welcome back, <span className="font-semibold text-foreground">{user?.name}</span>. Here's what's happening today.
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/50 dark:bg-white/5 border border-border hover:bg-white dark:hover:bg-white/10 transition-all text-sm font-medium">
-            <FileText size={18} />
-            Export Report
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all text-sm font-medium shadow-lg shadow-primary/20">
-            <Plus size={18} />
-            Create New Course
+          <button onClick={() => navigate('/courses')} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all text-sm font-medium shadow-lg shadow-primary/20">
+            <Plus size={18} /> Create New Course
           </button>
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {dashboardStats.map((stat, i) => (
-          <motion.div
-            key={stat.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="glass-card p-6 rounded-2xl group hover:scale-[1.02] transition-all duration-300 cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">{stat.title}</span>
-              <div className={cn(
-                "p-2 rounded-lg bg-background/50 border border-border group-hover:bg-primary/10 group-hover:text-primary transition-colors",
-                stat.title === "Total Revenue" ? "text-green-500" : 
-                stat.title === "Total Students" ? "text-blue-500" :
-                stat.title === "Active Courses" ? "text-purple-500" : "text-orange-500"
-              )}>
-                {stat.title === "Total Revenue" ? <DollarSign size={18} /> : 
-                 stat.title === "Total Students" ? <Users size={18} /> :
-                 stat.title === "Active Courses" ? <BookOpen size={18} /> : <Clock size={18} />}
-              </div>
-            </div>
-            <div className="mt-4 flex items-end justify-between">
-              <div>
-                <h3 className="text-2xl font-bold">{stat.value}</h3>
-                <div className={cn(
-                  "flex items-center gap-1 text-xs mt-1 font-medium",
-                  stat.isPositive ? "text-green-500" : "text-red-500"
-                )}>
-                  {stat.isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  <span>{stat.change} from last month</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+        <StatCard title="Total Students" value={stats?.totalStudents ?? null} icon={<Users size={18} />} color="text-blue-500" delay={0} />
+        <StatCard title="Active Students" value={stats?.activeStudents ?? null} icon={<UserCheck size={18} />} color="text-green-500" delay={0.1} />
+        <StatCard title="Total Courses" value={stats?.totalCourses ?? null} icon={<BookOpen size={18} />} color="text-purple-500" delay={0.2} />
+        <StatCard title="Pending Requests" value={stats?.pendingEnrollments ?? null} icon={<AlertCircle size={18} />} color="text-orange-500" delay={0.3} />
       </div>
 
-      {/* Charts Section */}
+      {/* Revenue stat row */}
+      <div className="glass-card p-6 rounded-2xl flex items-center gap-6">
+        <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center text-green-500">
+          <DollarSign size={24} />
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Total Verified Revenue</p>
+          <h2 className="text-3xl font-black">
+            {loadingStats ? <Loader2 size={24} className="animate-spin text-primary inline" /> : `₹${(stats?.totalRevenue || 0).toLocaleString()}`}
+          </h2>
+        </div>
+        <div className="ml-auto text-xs font-medium text-green-500 flex items-center gap-1">
+          <TrendingUp size={14} /> From verified payments
+        </div>
+      </div>
+
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="glass-card p-6 rounded-2xl">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-lg">Revenue Analytics</h3>
-            <select className="bg-background border border-border rounded-lg text-xs px-2 py-1 outline-none">
-              <option>Last 7 Days</option>
-              <option>Last 30 Days</option>
-              <option>Last 12 Months</option>
-            </select>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
+              <AreaChart data={CHART_DATA}>
                 <defs>
                   <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#888888', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#888888', fontSize: 12}} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.8)', borderRadius: '12px', border: '1px solid #e5e7eb', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                  itemStyle={{ color: 'hsl(var(--primary))', fontWeight: 'bold' }}
-                />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }} />
                 <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
-
         <div className="glass-card p-6 rounded-2xl">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-lg">Student Growth</h3>
-            <select className="bg-background border border-border rounded-lg text-xs px-2 py-1 outline-none">
-              <option>By Month</option>
-              <option>By Week</option>
-            </select>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[260px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#888888', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#888888', fontSize: 12}} />
-                <Tooltip 
-                   cursor={{fill: 'rgba(var(--primary), 0.1)'}}
-                   contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.8)', borderRadius: '12px', border: '1px solid #e5e7eb' }}
-                />
+              <BarChart data={CHART_DATA}>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888', fontSize: 12 }} />
+                <Tooltip contentStyle={{ backgroundColor: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }} />
                 <Bar dataKey="students" radius={[6, 6, 0, 0]}>
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={index === 2 ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.4)'} />
+                  {CHART_DATA.map((_, i) => (
+                    <Cell key={i} fill={i === CHART_DATA.length - 1 ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.4)'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -156,77 +160,90 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Bottom Section */}
+      {/* Bottom section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Enrollments Table */}
+        {/* Recent Enrollments */}
         <div className="lg:col-span-2 glass-card rounded-2xl overflow-hidden">
           <div className="p-6 border-b border-white/10 flex items-center justify-between">
             <h3 className="font-bold">Recent Enrollments</h3>
-            <button className="text-primary text-sm font-medium hover:underline flex items-center gap-1">
+            <button onClick={() => navigate('/enrollments')} className="text-primary text-sm font-medium hover:underline flex items-center gap-1">
               View All <ArrowRight size={14} />
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-xs uppercase text-muted-foreground border-b border-white/5 bg-muted/50">
-                  <th className="px-6 py-4 font-semibold">Student</th>
-                  <th className="px-6 py-4 font-semibold">Course</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 font-semibold">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {recentEnrollments.map((item) => (
-                  <tr key={item.id} className="hover:bg-white/5 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
-                          {item.student.charAt(0)}
-                        </div>
-                        <span className="font-medium">{item.student}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm">{item.course}</td>
-                    <td className="px-6 py-4">
-                      <span className={cn(
-                        "px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                        item.status === 'Paid' ? "bg-green-500/10 text-green-500" :
-                        item.status === 'Pending' ? "bg-orange-500/10 text-orange-500" : "bg-red-500/10 text-red-500"
-                      )}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-sm">{item.amount}</td>
+          {loadingStats ? (
+            <div className="flex items-center justify-center h-32"><Loader2 size={28} className="animate-spin text-primary" /></div>
+          ) : recentEnrollments.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">No enrollments yet.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-xs uppercase text-muted-foreground border-b border-white/5 bg-muted/50">
+                    <th className="px-6 py-4 font-semibold">Student</th>
+                    <th className="px-6 py-4 font-semibold">Course</th>
+                    <th className="px-6 py-4 font-semibold">Status</th>
+                    <th className="px-6 py-4 font-semibold">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {recentEnrollments.map((enr) => (
+                    <tr key={enr.id} className="hover:bg-white/5 transition-colors">
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                            {enr.Student?.name?.charAt(0)}
+                          </div>
+                          <span className="font-medium text-sm">{enr.Student?.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-muted-foreground">{enr.Course?.title}</td>
+                      <td className="px-6 py-3">
+                        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider', STATUS_STYLE[enr.status] || 'bg-muted text-muted-foreground')}>
+                          {enr.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-xs text-muted-foreground">
+                        {new Date(enr.createdAt).toLocaleDateString('en-IN')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Upcoming Live Classes */}
         <div className="glass-card p-6 rounded-2xl flex flex-col">
           <h3 className="font-bold mb-6">Upcoming Live Classes</h3>
-          <div className="space-y-4 flex-1">
-            {upcomingClasses.map((cls) => (
-              <div key={cls.id} className="flex gap-4 p-3 rounded-xl hover:bg-white/5 transition-all group border border-transparent hover:border-white/10">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex flex-col items-center justify-center text-primary leading-none">
-                  <span className="text-[10px] uppercase font-bold">{cls.date}</span>
-                  <span className="font-bold text-lg">{cls.time.split(' ')[0]}</span>
+          {loadingStats ? (
+            <div className="flex items-center justify-center flex-1"><Loader2 size={28} className="animate-spin text-primary" /></div>
+          ) : upcomingClasses.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <Clock size={32} className="opacity-30" />
+              <p className="text-sm text-center">No upcoming live classes scheduled.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 flex-1">
+              {upcomingClasses.map((cls) => (
+                <div key={cls.id} className="flex gap-4 p-3 rounded-xl hover:bg-white/5 transition-all group border border-transparent hover:border-white/10">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex flex-col items-center justify-center text-primary leading-none shrink-0">
+                    <span className="text-[9px] uppercase font-bold">{new Date(cls.scheduled_at).toLocaleString('en', { month: 'short' })}</span>
+                    <span className="font-bold text-lg">{new Date(cls.scheduled_at).getDate()}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">{cls.title}</h4>
+                    <p className="text-xs text-muted-foreground">{cls.Course?.title}</p>
+                  </div>
+                  <button className="self-center p-2 rounded-full hover:bg-primary/10 text-primary transition-all shrink-0">
+                    <PlayCircle size={20} />
+                  </button>
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">{cls.title}</h4>
-                  <p className="text-xs text-muted-foreground">{cls.batch} • {cls.time}</p>
-                </div>
-                <button className="self-center p-2 rounded-full hover:bg-primary/10 text-primary transition-all">
-                  <PlayCircle size={20} />
-                </button>
-              </div>
-            ))}
-          </div>
-          <button className="w-full py-3 mt-6 rounded-xl border border-dashed border-border hover:border-primary hover:text-primary transition-all text-sm font-medium text-muted-foreground">
-            View Schedule
+              ))}
+            </div>
+          )}
+          <button onClick={() => navigate('/live-classes')} className="w-full py-3 mt-6 rounded-xl border border-dashed border-border hover:border-primary hover:text-primary transition-all text-sm font-medium text-muted-foreground">
+            View Full Schedule
           </button>
         </div>
       </div>

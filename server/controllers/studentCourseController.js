@@ -1,13 +1,13 @@
 const { Course, CourseModule, Material, Enrollment } = require('../models');
 const { success, error } = require('../utils/response');
 
-// @desc    Get all active courses
+// @desc    Get all published courses
 // @route   GET /api/student/courses
 // @access  Public
 exports.getCourses = async (req, res) => {
   try {
     const courses = await Course.findAll({
-      where: { status: 'active' }
+      where: { status: 'published' }
     });
     success(res, courses);
   } catch (err) {

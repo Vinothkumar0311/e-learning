@@ -54,7 +54,14 @@ exports.login = async (req, res) => {
 
     const student = await Student.findOne({ where: { email } });
 
-    if (!student || !(await student.matchPassword(password))) {
+    if (!student) {
+      console.log(`❌ Login failed: Student not found (${email})`);
+      return error(res, 'Invalid credentials', 401);
+    }
+
+    const isMatch = await student.matchPassword(password);
+    if (!isMatch) {
+      console.log(`❌ Login failed: Password mismatch for ${email}`);
       return error(res, 'Invalid credentials', 401);
     }
 

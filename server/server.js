@@ -17,9 +17,15 @@ if (process.env.NODE_ENV === 'development') {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/student', require('./routes/student'));
 
-// Placeholder routes for other modules
+// Admin routes
+app.use('/api/courses', require('./routes/courses'));
+app.use('/api/students', require('./routes/students'));
+app.use('/api/enrollments', require('./routes/enrollments'));
+app.use('/api/dashboard', require('./routes/dashboard'));
+
+// Health check
 app.get('/api', (req, res) => {
-  res.json({ message: 'E-Learning Admin API is running' });
+  res.json({ message: 'E-Learning Admin API is running', version: '1.0.0' });
 });
 
 // --- Error Handling ---
@@ -40,8 +46,8 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('✅ Database connected successfully.');
     
-    // Sync models
-    await sequelize.sync({ alter: true });
+    // Sync models (safe - no destructive alter)
+    await sequelize.sync();
     console.log('✅ Models synchronized.');
 
     app.listen(PORT, () => {
