@@ -18,7 +18,10 @@ import {
   Video, 
   FileText, 
   HelpCircle, 
-  ArrowLeft 
+  ArrowLeft,
+  ChevronDown,
+  ChevronRight,
+  FolderPlus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../lib/api';
@@ -164,14 +167,43 @@ const CourseModal = ({ course, onClose, onSave }) => {
 };
 
 // --- Module Create/Edit Modal ---
-const ModuleModal = ({ module, courseId, onClose, onSave }) => {
+// --- Module Create/Edit Modal ---
+const ModuleModal = ({ module, courseId, sections = [], onClose, onSave }) => {
   const [form, setForm] = useState({
     title: module?.title || '',
     type: module?.type || 'video',
     duration: module?.duration || '',
-    order: module?.order || '0'
+    order: module?.order || '0',
+    youtube_url: module?.youtube_url || '',
+    file_url: module?.file_url || '',
+    section_id: module?.section_id || '',
+    is_free: module?.is_free ?? false
   });
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const { data } = await api.post('/courses/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setForm((prev) => ({ ...prev, file_url: data.data.fileUrl }));
+      toast.success('Document uploaded successfully');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -180,7 +212,11 @@ const ModuleModal = ({ module, courseId, onClose, onSave }) => {
       const payload = {
         ...form,
         duration: form.duration ? parseInt(form.duration) : null,
-        order: parseInt(form.order) || 0
+        order: parseInt(form.order) || 0,
+        section_id: form.section_id ? parseInt(form.section_id) : null,
+        youtube_url: form.type === 'video' ? (form.youtube_url || null) : null,
+        file_url: form.type === 'pdf' ? (form.file_url || null) : null,
+        is_free: form.is_free
       };
 
       if (module?.id) {
@@ -221,11 +257,41 @@ const ModuleModal = ({ module, courseId, onClose, onSave }) => {
             />
           </div>
 
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Select Course Section / Subsection</label>
+            <select 
+              className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              value={form.section_id}
+              onChange={(e) => setForm({ ...form, section_id: e.target.value })}
+            >
+              <option value="">-- No Section (Unassigned) --</option>
+              {sections.map((sec) => (
+                <optgroup key={sec.id} label={sec.title}>
+                  <option value={sec.id}>{sec.title} (Directly in Section)</option>
+                  {(sec.subsections || []).map((sub) => (
+                    <option key={sub.id} value={sub.id}>&nbsp;&nbsp;&nbsp;&nbsp;↳ {sub.title}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</label>
-              <select className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+              <select 
+                className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                value={form.type} 
+                onChange={(e) => {
+                  const newType = e.target.value;
+                  setForm({
+                    ...form,
+                    type: newType,
+                    youtube_url: newType === 'video' ? form.youtube_url : '',
+                    file_url: newType === 'pdf' ? form.file_url : ''
+                  });
+                }}
+              >
                 <option value="video">🎥 Video</option>
                 <option value="pdf">📄 PDF Document</option>
                 <option value="quiz">📝 Quiz</option>
@@ -238,6 +304,218 @@ const ModuleModal = ({ module, courseId, onClose, onSave }) => {
             </div>
           </div>
 
+          {form.type === 'video' && (
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">YouTube Video URL</label>
+                {form.youtube_url && (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, youtube_url: '' })}
+                    className="text-[10px] text-rose-500 hover:underline font-bold uppercase tracking-wider"
+                  >
+                    Clear Video
+                  </button>
+                )}
+              </div>
+              <input
+                type="url"
+                className="w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={form.youtube_url}
+                onChange={(e) => setForm({ ...form, youtube_url: e.target.value })}
+                placeholder="e.g. https://www.youtube.com/watch?v=..."
+              />
+            </div>
+          )}
+
+          {form.type === 'pdf' && (
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">PDF File Document</label>
+              {form.file_url ? (
+                <div className="flex items-center justify-between p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500 text-sm">
+                  <span className="truncate max-w-[250px]">{form.file_url.split('/').pop()}</span>
+                  <button 
+                    type="button" 
+                    onClick={() => setForm({ ...form, file_url: '' })} 
+                    className="text-xs hover:underline text-rose-500 font-medium"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="relative mt-1">
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                    className="hidden"
+                    id="module-file-input"
+                  />
+                  <label
+                    htmlFor="module-file-input"
+                    className={cn(
+                      "flex flex-col items-center justify-center p-4 border border-dashed border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-colors text-sm",
+                      uploading && "opacity-50 pointer-events-none"
+                    )}
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="animate-spin text-primary mb-1" size={20} />
+                        <span className="text-xs text-muted-foreground">Uploading file...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="text-muted-foreground mb-1" size={20} />
+                        <span className="font-medium text-primary">Click to upload document</span>
+                        <span className="text-xs text-muted-foreground mt-0.5">PDF, DOC, DOCX up to 20MB</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Display Sequence Order</label>
+            <input type="number" className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              value={form.order} onChange={(e) => setForm({ ...form, order: e.target.value })} placeholder="e.g. 1" />
+          </div>
+
+          {/* Free / Premium Toggle */}
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-2">Access Type</label>
+            <div className="flex items-center gap-2 p-1 bg-muted/50 rounded-xl border border-border">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, is_free: false })}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all',
+                  !form.is_free
+                    ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/30'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <span>👑</span> Premium
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, is_free: true })}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all',
+                  form.is_free
+                    ? 'bg-green-500 text-white shadow-sm shadow-green-500/30'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <span>🆓</span> Free
+              </button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1.5">
+              {form.is_free
+                ? '✅ All students can view this — no enrollment required.'
+                : '🔒 Only enrolled (paid) students can access this.'}
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border hover:bg-muted transition-all text-sm font-medium">Cancel</button>
+            <button type="submit" disabled={saving || uploading} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+              {saving && <Loader2 size={16} className="animate-spin" />}
+              {module?.id ? 'Save Changes' : 'Add Module'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+// --- Section Create/Edit Modal ---
+const SectionModal = ({ section, courseId, existingSections = [], onClose, onSave }) => {
+  const [form, setForm] = useState({
+    title: section?.title || '',
+    description: section?.description || '',
+    order: section?.order || '0',
+    parent_id: section?.parent_id || ''
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const payload = {
+        ...form,
+        order: parseInt(form.order) || 0,
+        parent_id: form.parent_id ? parseInt(form.parent_id) : null
+      };
+
+      if (section?.id) {
+        const { data } = await api.put(`/courses/${courseId}/sections/${section.id}`, payload);
+        onSave(data.data, false);
+        toast.success('Section updated successfully');
+      } else {
+        const { data } = await api.post(`/courses/${courseId}/sections`, payload);
+        onSave(data.data, true);
+        toast.success('Section created successfully');
+      }
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save section');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="glass-card rounded-2xl w-full max-w-md p-6 shadow-2xl"
+      >
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold">{section?.id ? 'Edit Section' : 'Create New Section'}</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors"><X size={18} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Section Title *</label>
+            <input
+              className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="e.g. Introduction to Generative AI"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Short Description / Objective</label>
+            <textarea
+              className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+              value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} placeholder="e.g. Get familiar with terms and basic architecture"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Parent Section (Optional)</label>
+            <select
+              className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              value={form.parent_id || ''}
+              onChange={(e) => setForm({ ...form, parent_id: e.target.value })}
+            >
+              <option value="">-- None (Make it a Top-level Section) --</option>
+              {(existingSections || [])
+                .filter(s => s.id !== section?.id && !s.parent_id)
+                .map(s => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))
+              }
+            </select>
+            <p className="text-[10px] text-muted-foreground mt-1">Select a parent section if you want this to be a nested subsection.</p>
+          </div>
+
           <div>
             <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Display Sequence Order</label>
             <input type="number" className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -248,7 +526,7 @@ const ModuleModal = ({ module, courseId, onClose, onSave }) => {
             <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-border hover:bg-muted transition-all text-sm font-medium">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
               {saving && <Loader2 size={16} className="animate-spin" />}
-              {module?.id ? 'Save Changes' : 'Add Module'}
+              {section?.id ? 'Save Changes' : 'Create Section'}
             </button>
           </div>
         </form>
@@ -277,6 +555,18 @@ const Courses = () => {
   // Module managing states
   const [showModuleModal, setShowModuleModal] = useState(false);
   const [editingModule, setEditingModule] = useState(null);
+
+  // Section managing states
+  const [showSectionModal, setShowSectionModal] = useState(false);
+  const [editingSection, setEditingSection] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({});
+
+  const toggleSection = (sectionId) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
 
   const fetchCourses = useCallback(async () => {
     setLoading(true);
@@ -343,29 +633,32 @@ const Courses = () => {
     }
   };
 
+  // Section actions
+  const handleSectionSave = (saved, isNew) => {
+    fetchCourseDetails(selectedCourse.id);
+  };
+
+  const handleSectionDelete = async (sectionId) => {
+    if (!confirm('Are you sure you want to delete this section? All lectures inside it will be moved to unassigned. This cannot be undone.')) return;
+    try {
+      await api.delete(`/courses/${selectedCourse.id}/sections/${sectionId}`);
+      fetchCourseDetails(selectedCourse.id);
+      toast.success('Section deleted successfully');
+    } catch (err) {
+      toast.error('Failed to delete section');
+    }
+  };
+
   // Module actions
   const handleModuleSave = (saved, isNew) => {
-    if (isNew) {
-      setSelectedCourseDetails((prev) => ({
-        ...prev,
-        modules: [...(prev?.modules || []), saved].sort((a, b) => a.order - b.order)
-      }));
-    } else {
-      setSelectedCourseDetails((prev) => ({
-        ...prev,
-        modules: (prev?.modules || []).map((m) => (m.id === saved.id ? saved : m)).sort((a, b) => a.order - b.order)
-      }));
-    }
+    fetchCourseDetails(selectedCourse.id);
   };
 
   const handleModuleDelete = async (moduleId) => {
     if (!confirm('Delete this curriculum module? This cannot be undone.')) return;
     try {
       await api.delete(`/courses/${selectedCourse.id}/modules/${moduleId}`);
-      setSelectedCourseDetails((prev) => ({
-        ...prev,
-        modules: (prev?.modules || []).filter((m) => m.id !== moduleId)
-      }));
+      fetchCourseDetails(selectedCourse.id);
       toast.success('Module deleted successfully');
     } catch (err) {
       toast.error('Failed to delete module');
@@ -383,8 +676,19 @@ const Courses = () => {
           <ModuleModal
             module={editingModule}
             courseId={selectedCourse.id}
+            sections={courseDetails.sections || []}
             onClose={() => { setShowModuleModal(false); setEditingModule(null); }}
             onSave={handleModuleSave}
+          />
+        )}
+
+        {showSectionModal && (
+          <SectionModal
+            section={editingSection}
+            courseId={selectedCourse.id}
+            existingSections={courseDetails.sections || []}
+            onClose={() => { setShowSectionModal(false); setEditingSection(null); }}
+            onSave={handleSectionSave}
           />
         )}
 
@@ -466,6 +770,10 @@ const Courses = () => {
               <h3 className="font-extrabold text-lg mb-4">Curriculum Status</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2 border-b border-border/30">
+                  <span className="text-sm text-muted-foreground">Total Sections</span>
+                  <span className="font-bold text-foreground text-sm">{(courseDetails.sections || []).length}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-border/30">
                   <span className="text-sm text-muted-foreground">Total Lessons/Modules</span>
                   <span className="font-bold text-foreground text-sm">{modules.length}</span>
                 </div>
@@ -482,86 +790,454 @@ const Courses = () => {
           {/* Right panel - Curriculum and Modules List */}
           <div className="lg:col-span-2 space-y-6">
             <div className="glass-card rounded-2xl p-6 border border-white/20">
-              <div className="flex items-center justify-between pb-4 border-b border-border/50">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-border/50 gap-4">
                 <div>
                   <h3 className="font-bold text-xl">Course Syllabus Curriculum</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Chronologically ordered course content and exercises.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Organized course sections and syllabus curriculum.</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setEditingModule({ title: '', type: 'video', duration: '', order: String(modules.length + 1) });
-                    setShowModuleModal(true);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all font-semibold text-sm shadow-md shadow-primary/15"
-                >
-                  <Plus size={16} /> Add Module
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => {
+                      if (Object.keys(expandedSections).length > 0) {
+                        setExpandedSections({});
+                      } else {
+                        const all = {};
+                        (courseDetails.sections || []).forEach(s => { all[s.id] = true; });
+                        setExpandedSections(all);
+                      }
+                    }}
+                    className="text-xs text-primary hover:underline font-bold uppercase tracking-wider px-2 py-1 cursor-pointer"
+                  >
+                    {Object.keys(expandedSections).length > 0 ? 'Collapse all sections' : 'Expand all sections'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingSection(null);
+                      setShowSectionModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-all font-semibold text-xs cursor-pointer"
+                  >
+                    <FolderPlus size={14} /> New Section
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingModule({ title: '', type: 'video', duration: '', order: String(modules.length + 1), youtube_url: '', file_url: '', section_id: '' });
+                      setShowModuleModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all font-semibold text-xs shadow-md shadow-primary/15 cursor-pointer"
+                  >
+                    <Plus size={14} /> Add Module
+                  </button>
+                </div>
               </div>
 
               {loadingDetails ? (
                 <div className="flex items-center justify-center py-20">
                   <Loader2 size={36} className="animate-spin text-primary" />
                 </div>
-              ) : modules.length === 0 ? (
+              ) : (!courseDetails.sections || courseDetails.sections.length === 0) && modules.filter(m => !m.section_id).length === 0 ? (
                 <div className="text-center py-20 text-muted-foreground">
                   <LayoutGrid size={48} className="mx-auto mb-4 opacity-20 text-primary" />
-                  <p className="font-bold text-lg">No syllabus modules defined</p>
-                  <p className="text-sm mt-1 max-w-xs mx-auto">This course doesn't have any lessons, documents, or quizzes. Click "Add Module" to start compiling your content!</p>
+                  <p className="font-bold text-lg">No syllabus sections or modules defined</p>
+                  <p className="text-sm mt-1 max-w-xs mx-auto">This course doesn't have any sections, lessons, or quizzes. Click "New Section" or "Add Module" to start compiling your content!</p>
                 </div>
               ) : (
-                <div className="mt-6 space-y-3.5">
-                  {modules.map((mod, i) => {
-                    const style = MODULE_TYPE_STYLES[mod.type] || MODULE_TYPE_STYLES.video;
-                    const Icon = style.icon;
+                <div className="mt-6 space-y-4">
+                  {/* Render Sections */}
+                  {(courseDetails.sections || []).map((sec, secIdx) => {
+                    const isExpanded = !!expandedSections[sec.id];
+                    const directLectures = sec.modules || [];
+                    const subSectionsList = sec.subsections || [];
+                    const subLecturesCount = subSectionsList.reduce((sum, s) => sum + (s.modules?.length || 0), 0);
+                    const totalLecturesCount = directLectures.length + subLecturesCount;
+                    const directDuration = directLectures.reduce((sum, m) => sum + (m.duration || 0), 0);
+                    const subDuration = subSectionsList.reduce((sum, s) => sum + (s.modules || []).reduce((mSum, m) => mSum + (m.duration || 0), 0), 0);
+                    const totalDuration = directDuration + subDuration;
 
                     return (
-                      <motion.div
-                        key={mod.id || i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-background/50 hover:bg-background/80 hover:border-primary/20 transition-all duration-200 group gap-4 shadow-sm"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center border font-bold text-sm shrink-0", style.bg)}>
-                            <Icon size={18} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs font-black text-primary/70">#{mod.order}</span>
-                              <h4 className="font-bold text-base text-foreground break-all">{mod.title}</h4>
-                            </div>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                              <span className="capitalize">{mod.type}</span>
-                              {mod.duration && (
-                                <>
-                                  <span>•</span>
-                                  <span className="flex items-center gap-1"><Clock size={12} /> {mod.duration} mins</span>
-                                </>
+                      <div key={sec.id} className="border border-border rounded-2xl overflow-hidden bg-background/30 shadow-sm transition-all duration-200">
+                        {/* Section Header */}
+                        <div 
+                          className={cn(
+                            "flex items-center justify-between p-4 cursor-pointer select-none transition-colors",
+                            isExpanded ? "bg-muted/50 border-b border-border" : "bg-muted/20 hover:bg-muted/40"
+                          )}
+                          onClick={() => toggleSection(sec.id)}
+                        >
+                          <div className="flex items-center gap-3 shrink min-w-0 pr-4">
+                            <span className="text-muted-foreground shrink-0">
+                              {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                            </span>
+                            <div className="shrink min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-black text-primary/70">Section {secIdx + 1}</span>
+                                <h4 className="font-bold text-base text-foreground truncate">{sec.title}</h4>
+                              </div>
+                              {sec.description && (
+                                <p className="text-xs text-muted-foreground truncate mt-0.5">{sec.description}</p>
                               )}
                             </div>
                           </div>
+
+                          <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <span className="text-xs text-muted-foreground hidden sm:inline-block font-medium">
+                              {totalLecturesCount} {totalLecturesCount === 1 ? 'lecture' : 'lectures'} • {totalDuration} min
+                            </span>
+
+                            {/* Section actions */}
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setEditingSection({ title: '', description: '', order: '0', parent_id: String(sec.id) });
+                                  setShowSectionModal(true);
+                                }}
+                                className="p-1.5 rounded-lg bg-background hover:bg-primary/10 text-primary border border-border transition-colors cursor-pointer"
+                                title="Add Subsection"
+                              >
+                                <FolderPlus size={12} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingModule({ title: '', type: 'video', duration: '', order: String(directLectures.length + 1), youtube_url: '', file_url: '', section_id: String(sec.id) });
+                                  setShowModuleModal(true);
+                                }}
+                                className="p-1.5 rounded-lg bg-background hover:bg-primary/10 text-primary border border-border transition-colors cursor-pointer"
+                                title="Add Lecture directly to Section"
+                              >
+                                <Plus size={12} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingSection(sec);
+                                  setShowSectionModal(true);
+                                }}
+                                className="p-1.5 rounded-lg bg-background hover:bg-primary hover:text-white border border-border transition-all cursor-pointer"
+                                title="Edit Section"
+                              >
+                                <Edit size={12} />
+                              </button>
+                              <button
+                                onClick={() => handleSectionDelete(sec.id)}
+                                className="p-1.5 rounded-lg bg-background hover:bg-rose-500 hover:text-white border border-border transition-all cursor-pointer"
+                                title="Delete Section"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0 self-end sm:self-center">
-                          <button
-                            onClick={() => { setEditingModule(mod); setShowModuleModal(true); }}
-                            className="p-2 rounded-lg bg-muted text-muted-foreground hover:bg-primary hover:text-white transition-colors"
-                            title="Edit Module"
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleModuleDelete(mod.id)}
-                            className="p-2 rounded-lg bg-muted text-muted-foreground hover:bg-red-500 hover:text-white transition-colors"
-                            title="Delete Module"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </motion.div>
+                        {/* Section Content */}
+                        {isExpanded && (
+                          <div className="p-3 bg-background/10 space-y-4 border-t border-border/20">
+                            {/* Render Direct Section Modules */}
+                            {directLectures.length > 0 && (
+                              <div className="space-y-2">
+                                {directLectures.map((mod, modIdx) => {
+                                  const style = MODULE_TYPE_STYLES[mod.type] || MODULE_TYPE_STYLES.video;
+                                  const Icon = style.icon;
+
+                                  return (
+                                    <motion.div
+                                      key={mod.id || modIdx}
+                                      initial={{ opacity: 0, y: 5 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border/70 bg-background/50 hover:bg-background hover:border-primary/20 transition-all duration-150 group gap-3 shadow-xs"
+                                    >
+                                      <div className="flex items-center gap-3 shrink min-w-0 pr-4">
+                                        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border font-bold text-xs shrink-0", style.bg)}>
+                                          <Icon size={14} />
+                                        </div>
+                                        <div className="shrink min-w-0">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-[10px] font-black text-primary/70">#{mod.order}</span>
+                                            <h5 className="font-bold text-sm text-foreground truncate">{mod.title}</h5>
+                                            {mod.is_preview && (
+                                              <span className="px-1.5 py-0.5 rounded bg-primary/10 text-[9px] font-bold text-primary uppercase">Preview</span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5 flex-wrap">
+                                            <span className="capitalize">{mod.type}</span>
+                                            {mod.duration && (
+                                              <>
+                                                <span>•</span>
+                                                <span className="flex items-center gap-0.5"><Clock size={10} /> {mod.duration} mins</span>
+                                              </>
+                                            )}
+                                            {mod.type === 'video' && mod.youtube_url && (
+                                              <>
+                                                <span>•</span>
+                                                <a 
+                                                  href={mod.youtube_url} 
+                                                  target="_blank" 
+                                                  rel="noopener noreferrer" 
+                                                  className="text-primary hover:underline font-medium truncate max-w-[150px]"
+                                                  title={mod.youtube_url}
+                                                >
+                                                  🎬 Video Link
+                                                </a>
+                                              </>
+                                            )}
+                                            {mod.type === 'pdf' && mod.file_url && (
+                                              <>
+                                                <span>•</span>
+                                                <a 
+                                                  href={mod.file_url} 
+                                                  target="_blank" 
+                                                  rel="noopener noreferrer" 
+                                                  className="text-rose-500 hover:underline font-medium truncate max-w-[150px]"
+                                                  title={mod.file_url}
+                                                >
+                                                  📂 PDF File
+                                                </a>
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                                        {/* Free / Premium badge */}
+                                        <span className={cn(
+                                          'px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border',
+                                          mod.is_free
+                                            ? 'bg-green-500/10 text-green-600 border-green-500/20'
+                                            : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                        )}>
+                                          {mod.is_free ? '🆓 Free' : '👑 Premium'}
+                                        </span>
+                                        <button
+                                          onClick={() => { setEditingModule(mod); setShowModuleModal(true); }}
+                                          className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-primary hover:text-white transition-colors cursor-pointer"
+                                          title="Edit Module"
+                                        >
+                                          <Edit size={12} />
+                                        </button>
+                                        <button
+                                          onClick={() => handleModuleDelete(mod.id)}
+                                          className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+                                          title="Delete Module"
+                                        >
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    </motion.div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Render Subsections */}
+                            {subSectionsList.length > 0 && (
+                              <div className="space-y-3 pl-4 border-l-2 border-primary/20 mt-2">
+                                <h5 className="text-xs font-bold text-muted-foreground tracking-wider uppercase mb-1">Subsections</h5>
+                                {subSectionsList.map((sub, subIdx) => {
+                                  const subLectures = sub.modules || [];
+                                  const subDur = subLectures.reduce((sum, m) => sum + (m.duration || 0), 0);
+
+                                  return (
+                                    <div key={sub.id} className="border border-border/60 rounded-xl overflow-hidden bg-background/40 shadow-xs">
+                                      {/* Subsection Header */}
+                                      <div className="flex items-center justify-between p-3 bg-muted/30 border-b border-border/40">
+                                        <div className="shrink min-w-0 pr-4">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="text-[10px] font-black text-primary/60">Subsection {subIdx + 1}</span>
+                                            <h6 className="font-bold text-sm text-foreground truncate">{sub.title}</h6>
+                                          </div>
+                                          {sub.description && (
+                                            <p className="text-[10px] text-muted-foreground truncate mt-0.5">{sub.description}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                          <span className="text-[10px] text-muted-foreground hidden sm:inline-block font-medium">
+                                            {subLectures.length} {subLectures.length === 1 ? 'lecture' : 'lectures'} • {subDur} min
+                                          </span>
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              onClick={() => {
+                                                setEditingModule({ title: '', type: 'video', duration: '', order: String(subLectures.length + 1), youtube_url: '', file_url: '', section_id: String(sub.id) });
+                                                setShowModuleModal(true);
+                                              }}
+                                              className="p-1 rounded-md bg-background hover:bg-primary/10 text-primary border border-border transition-colors cursor-pointer"
+                                              title="Add Lecture to Subsection"
+                                            >
+                                              <Plus size={10} />
+                                            </button>
+                                            <button
+                                              onClick={() => {
+                                                setEditingSection(sub);
+                                                setShowSectionModal(true);
+                                              }}
+                                              className="p-1 rounded-md bg-background hover:bg-primary hover:text-white border border-border transition-all cursor-pointer"
+                                              title="Edit Subsection"
+                                            >
+                                              <Edit size={10} />
+                                            </button>
+                                            <button
+                                              onClick={() => handleSectionDelete(sub.id)}
+                                              className="p-1 rounded-md bg-background hover:bg-rose-500 hover:text-white border border-border transition-all cursor-pointer"
+                                              title="Delete Subsection"
+                                            >
+                                              <Trash2 size={10} />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* Subsection Modules */}
+                                      <div className="p-2 space-y-1.5 bg-background/5">
+                                        {subLectures.length === 0 ? (
+                                          <div className="text-center py-4 text-muted-foreground text-[10px]">
+                                            No lectures inside this subsection yet. Click the "+" button to add one.
+                                          </div>
+                                        ) : (
+                                          subLectures.map((mod, modIdx) => {
+                                            const style = MODULE_TYPE_STYLES[mod.type] || MODULE_TYPE_STYLES.video;
+                                            const Icon = style.icon;
+
+                                            return (
+                                              <div
+                                                key={mod.id || modIdx}
+                                                className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-lg border border-border/50 bg-background/30 hover:bg-background hover:border-primary/10 transition-all duration-150 group gap-2 text-xs"
+                                              >
+                                                <div className="flex items-center gap-2.5 shrink min-w-0 pr-3">
+                                                  <div className={cn("w-6 h-6 rounded-md flex items-center justify-center border font-bold text-[10px] shrink-0", style.bg)}>
+                                                    <Icon size={12} />
+                                                  </div>
+                                                  <div className="shrink min-w-0">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                      <span className="text-[9px] font-black text-primary/70">#{mod.order}</span>
+                                                      <h6 className="font-bold text-xs text-foreground truncate">{mod.title}</h6>
+                                                      {mod.is_preview && (
+                                                        <span className="px-1 py-0.2 rounded bg-primary/10 text-[8px] font-bold text-primary uppercase">Preview</span>
+                                                      )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-[9px] text-muted-foreground mt-0.5 flex-wrap">
+                                                      <span className="capitalize">{mod.type}</span>
+                                                      {mod.duration && (
+                                                        <>
+                                                          <span>•</span>
+                                                          <span className="flex items-center gap-0.5"><Clock size={8} /> {mod.duration} mins</span>
+                                                        </>
+                                                      )}
+                                                      {mod.type === 'video' && mod.youtube_url && (
+                                                        <>
+                                                          <span>•</span>
+                                                          <a href={mod.youtube_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium truncate max-w-[120px]">🎬 Video</a>
+                                                        </>
+                                                      )}
+                                                      {mod.type === 'pdf' && mod.file_url && (
+                                                        <>
+                                                          <span>•</span>
+                                                          <a href={mod.file_url} target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline font-medium truncate max-w-[120px]">📂 PDF</a>
+                                                        </>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
+                                                  <button
+                                                    onClick={() => { setEditingModule(mod); setShowModuleModal(true); }}
+                                                    className="p-1 rounded-md bg-muted text-muted-foreground hover:bg-primary hover:text-white transition-colors cursor-pointer"
+                                                    title="Edit Module"
+                                                  >
+                                                    <Edit size={10} />
+                                                  </button>
+                                                  <button
+                                                    onClick={() => handleModuleDelete(mod.id)}
+                                                    className="p-1 rounded-md bg-muted text-muted-foreground hover:bg-rose-500 hover:text-white transition-colors cursor-pointer"
+                                                    title="Delete Module"
+                                                  >
+                                                    <Trash2 size={10} />
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            );
+                                          })
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {totalLecturesCount === 0 && (
+                              <div className="text-center py-8 text-muted-foreground text-xs">
+                                No lectures or subsections in this section yet. Click the "+" or "New Section" to add content.
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
+
+                  {/* Render Unassigned modules if any */}
+                  {modules.filter(m => !m.section_id).length > 0 && (
+                    <div className="border border-dashed border-border rounded-2xl overflow-hidden bg-muted/5 shadow-inner mt-6">
+                      <div className="flex items-center justify-between p-4 bg-muted/10">
+                        <div>
+                          <h4 className="font-bold text-sm text-foreground/80">Unassigned Lectures</h4>
+                          <p className="text-xs text-muted-foreground mt-0.5">These modules are not assigned to any section. Edit them to choose a section.</p>
+                        </div>
+                        <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                          {modules.filter(m => !m.section_id).length} unassigned
+                        </span>
+                      </div>
+                      <div className="p-3 space-y-2">
+                        {modules.filter(m => !m.section_id).map((mod, modIdx) => {
+                          const style = MODULE_TYPE_STYLES[mod.type] || MODULE_TYPE_STYLES.video;
+                          const Icon = style.icon;
+
+                          return (
+                            <div
+                              key={mod.id || modIdx}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-border bg-background/50 hover:bg-background transition-all duration-150 gap-3"
+                            >
+                              <div className="flex items-center gap-3 shrink min-w-0 pr-4">
+                                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border font-bold text-xs shrink-0", style.bg)}>
+                                  <Icon size={14} />
+                                </div>
+                                <div className="shrink min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[10px] font-black text-muted-foreground">#{mod.order}</span>
+                                    <h5 className="font-bold text-sm text-foreground/80 truncate">{mod.title}</h5>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5 flex-wrap">
+                                    <span className="capitalize">{mod.type}</span>
+                                    {mod.duration && (
+                                      <>
+                                        <span>•</span>
+                                        <span>{mod.duration} mins</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                                <button
+                                  onClick={() => { setEditingModule(mod); setShowModuleModal(true); }}
+                                  className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-primary hover:text-white transition-colors cursor-pointer"
+                                  title="Edit Module"
+                                >
+                                  <Edit size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleModuleDelete(mod.id)}
+                                  className="p-1.5 rounded-lg bg-muted text-muted-foreground hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+                                  title="Delete Module"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

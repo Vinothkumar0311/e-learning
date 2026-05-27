@@ -24,6 +24,7 @@ const navItems = [
   { name: 'Courses', icon: BookOpen, path: '/courses' },
   { name: 'Students', icon: Users, path: '/students' },
   { name: 'Enrollment Requests', icon: ClipboardList, path: '/enrollments' },
+  { name: 'Verify Payments', icon: CreditCard, path: '/verify-payments' },
   { name: 'Payments', icon: CreditCard, path: '/payments' },
   { name: 'Live Classes', icon: Video, path: '/live-classes' },
   { name: 'Materials', icon: FileText, path: '/materials' },

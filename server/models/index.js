@@ -9,12 +9,28 @@ const LiveClass = require('./LiveClass');
 const Attendance = require('./Attendance');
 const Material = require('./Material');
 const Notification = require('./Notification');
+const Cart = require('./Cart');
+const CartItem = require('./CartItem');
+const PaymentAuditLog = require('./PaymentAuditLog');
+const CourseSection = require('./CourseSection');
 
 // --- Associations ---
 
 // Course <-> CourseModule
 Course.hasMany(CourseModule, { foreignKey: 'course_id', as: 'modules' });
 CourseModule.belongsTo(Course, { foreignKey: 'course_id' });
+
+// Course <-> CourseSection
+Course.hasMany(CourseSection, { foreignKey: 'course_id', as: 'sections' });
+CourseSection.belongsTo(Course, { foreignKey: 'course_id' });
+
+// CourseSection <-> CourseSection (Subsections)
+CourseSection.hasMany(CourseSection, { foreignKey: 'parent_id', as: 'subsections', onDelete: 'CASCADE' });
+CourseSection.belongsTo(CourseSection, { foreignKey: 'parent_id', as: 'parent' });
+
+// CourseSection <-> CourseModule
+CourseSection.hasMany(CourseModule, { foreignKey: 'section_id', as: 'modules' });
+CourseModule.belongsTo(CourseSection, { foreignKey: 'section_id', as: 'section' });
 
 // Student <-> Enrollment
 Student.hasMany(Enrollment, { foreignKey: 'student_id' });
@@ -31,6 +47,26 @@ Payment.belongsTo(Enrollment, { foreignKey: 'enrollment_id' });
 // Student <-> Payment
 Student.hasMany(Payment, { foreignKey: 'student_id' });
 Payment.belongsTo(Student, { foreignKey: 'student_id' });
+
+// Student <-> Cart
+Student.hasOne(Cart, { foreignKey: 'student_id', as: 'cart' });
+Cart.belongsTo(Student, { foreignKey: 'student_id' });
+
+// Cart <-> CartItem
+Cart.hasMany(CartItem, { foreignKey: 'cart_id', as: 'items' });
+CartItem.belongsTo(Cart, { foreignKey: 'cart_id' });
+
+// Course <-> CartItem
+Course.hasMany(CartItem, { foreignKey: 'course_id' });
+CartItem.belongsTo(Course, { foreignKey: 'course_id' });
+
+// Payment <-> PaymentAuditLog
+Payment.hasMany(PaymentAuditLog, { foreignKey: 'payment_id', as: 'auditLogs' });
+PaymentAuditLog.belongsTo(Payment, { foreignKey: 'payment_id' });
+
+// User <-> PaymentAuditLog
+User.hasMany(PaymentAuditLog, { foreignKey: 'performed_by' });
+PaymentAuditLog.belongsTo(User, { foreignKey: 'performed_by', as: 'performedBy' });
 
 // Course <-> LiveClass
 Course.hasMany(LiveClass, { foreignKey: 'course_id' });
@@ -67,5 +103,10 @@ module.exports = {
   LiveClass,
   Attendance,
   Material,
-  Notification
+  Notification,
+  Cart,
+  CartItem,
+  PaymentAuditLog,
+  CourseSection
 };
+

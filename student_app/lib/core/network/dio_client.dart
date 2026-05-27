@@ -29,9 +29,12 @@ class DioClient {
           }
           return handler.next(options);
         },
-        onError: (DioException e, handler) {
+        onError: (DioException e, handler) async {
           if (e.response?.statusCode == 401) {
-            // Handle unauthorized (e.g., logout or refresh token)
+            // Clear stale token — the account no longer exists or session expired
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove(AppConstants.tokenKey);
+            await prefs.remove(AppConstants.userKey);
           }
           return handler.next(e);
         },

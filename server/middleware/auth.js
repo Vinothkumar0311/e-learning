@@ -67,4 +67,22 @@ const studentProtect = async (req, res, next) => {
   }
 };
 
-module.exports = { protect, authorize, studentProtect };
+// Optional auth: populates req.user if token is present but does NOT reject unauthenticated requests
+const optionalStudentProtect = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const student = await Student.findByPk(decoded.id);
+      if (student && student.is_active) {
+        req.user = student;
+      }
+    }
+  } catch (_) {
+    // Token invalid or expired — proceed as unauthenticated, no error thrown
+  }
+  next();
+};
+
+module.exports = { protect, authorize, studentProtect, optionalStudentProtect };

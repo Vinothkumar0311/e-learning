@@ -14,6 +14,10 @@ const generateToken = (id) => {
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
+  console.log("server login here");
+  console.log("email : ", email);
+  console.log("password : ", password);
+
   try {
     if (!email || !password) {
       return error(res, 'Please provide an email and password', 400);

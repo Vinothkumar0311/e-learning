@@ -26,6 +26,11 @@ const Material = sequelize.define('Material', {
   download_count: {
     type: DataTypes.INTEGER,
     defaultValue: 0
+  },
+  is_free: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'false = Premium (paid), true = Free (visible to all)'
   }
 });
 

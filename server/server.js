@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const path = require('path');
 require('dotenv').config();
 const { sequelize } = require('./models');
 
@@ -13,6 +14,9 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
+// Serve uploads statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // --- Routes ---
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/student', require('./routes/student'));
@@ -21,6 +25,7 @@ app.use('/api/student', require('./routes/student'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/students', require('./routes/students'));
 app.use('/api/enrollments', require('./routes/enrollments'));
+app.use('/api/payments', require('./routes/payments'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 
 // Health check
@@ -47,10 +52,10 @@ const startServer = async () => {
     console.log('✅ Database connected successfully.');
     
     // Sync models (safe - no destructive alter)
-    await sequelize.sync();
+    await sequelize.sync({ alter: true });
     console.log('✅ Models synchronized.');
 
-    app.listen(PORT, () => {
+    app.listen(PORT,'0.0.0.0', () => {
       console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
     });
   } catch (err) {

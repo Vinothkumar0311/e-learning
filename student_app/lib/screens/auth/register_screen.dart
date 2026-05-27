@@ -35,6 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       if (mounted) context.go('/home');
     } catch (e) {
+      debugPrint("REGISTER ERROR: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString())),

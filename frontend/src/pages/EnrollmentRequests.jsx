@@ -1,25 +1,45 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Filter, Check, X, Eye, MessageSquare, ChevronDown, Loader2 } from 'lucide-react';
+import { 
+  Search, Check, X, Eye, ChevronRight, Loader2, 
+  UserCheck, ShieldAlert, Award, Calendar, DollarSign, Ban, Wallet, Send
+} from 'lucide-react';
 import { toast } from 'sonner';
 import api from '../lib/api';
 import { cn } from '../lib/utils';
+import AmountAssignModal from '../components/enrollments/AmountAssignModal';
+import ManualPaymentModal from '../components/enrollments/ManualPaymentModal';
+import BlockAccessModal from '../components/enrollments/BlockAccessModal';
+import RequestPaymentModal from '../components/enrollments/RequestPaymentModal';
 
 const STATUS_CONFIG = {
-  pending:           { label: 'Pending',           style: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', step: 0 },
-  reviewed:          { label: 'Reviewed',          style: 'bg-blue-500/10 text-blue-500 border-blue-500/20', step: 1 },
-  contacted:         { label: 'Contacted',         style: 'bg-purple-500/10 text-purple-500 border-purple-500/20', step: 2 },
-  fee_set:           { label: 'Fee Set',           style: 'bg-orange-500/10 text-orange-500 border-orange-500/20', step: 3 },
-  payment_requested: { label: 'Payment Requested', style: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20', step: 4 },
-  verified:          { label: 'Verified',          style: 'bg-green-500/10 text-green-500 border-green-500/20', step: 5 },
-  enrolled:          { label: 'Enrolled',          style: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20', step: 6 },
-  rejected:          { label: 'Rejected',          style: 'bg-red-500/10 text-red-500 border-red-500/20', step: -1 },
+  // Brand new Cart statuses
+  Pending: { label: 'Pending Request', style: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', step: 0 },
+  Reviewing: { label: 'Under Review', style: 'bg-blue-500/10 text-blue-500 border-blue-500/20', step: 1 },
+  Approved: { label: 'Approved', style: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20', step: 2 },
+  AmountAssigned: { label: 'Amount Assigned', style: 'bg-orange-500/10 text-orange-500 border-orange-500/20', step: 3 },
+  PaymentPending: { label: 'Awaiting Payment', style: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20', step: 4 },
+  PaymentSubmitted: { label: 'Payment Submitted', style: 'bg-amber-500/10 text-amber-500 border-amber-500/20', step: 5 },
+  PaymentVerified: { label: 'Payment Verified', style: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', step: 6 },
+  Enrolled: { label: 'Enrolled', style: 'bg-green-500/10 text-green-500 border-green-500/20', step: 7 },
+  Rejected: { label: 'Rejected', style: 'bg-red-500/10 text-red-500 border-red-500/20', step: -1 },
+
+  // Backward compatibility support for older seeded entries
+  pending: { label: 'Pending Request', style: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20', step: 0 },
+  reviewed: { label: 'Under Review', style: 'bg-blue-500/10 text-blue-500 border-blue-500/20', step: 1 },
+  contacted: { label: 'Contacted', style: 'bg-purple-500/10 text-purple-500 border-purple-500/20', step: 2 },
+  fee_set: { label: 'Fee Set', style: 'bg-orange-500/10 text-orange-500 border-orange-500/20', step: 3 },
+  payment_requested: { label: 'Awaiting Payment', style: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20', step: 4 },
+  verified: { label: 'Payment Verified', style: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20', step: 6 },
+  enrolled: { label: 'Enrolled', style: 'bg-green-500/10 text-green-500 border-green-500/20', step: 7 },
+  rejected: { label: 'Rejected', style: 'bg-red-500/10 text-red-500 border-red-500/20', step: -1 }
 };
 
-const WORKFLOW_STEPS = ['Request', 'Review', 'Contact', 'Fee Entry', 'Payment', 'Verify', 'Enroll'];
-const NEXT_STATUS = { pending: 'reviewed', reviewed: 'contacted', contacted: 'fee_set', fee_set: 'payment_requested', payment_requested: 'verified', verified: 'enrolled' };
+const WORKFLOW_STEPS = ['Request', 'Review', 'Approve', 'Assign Amount', 'Awaiting Pay', 'Submitted', 'Verify', 'Enroll'];
 
 const EnrollmentRequests = () => {
+  const navigate = useNavigate();
   const [enrollments, setEnrollments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
@@ -27,6 +47,13 @@ const EnrollmentRequests = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [updatingId, setUpdatingId] = useState(null);
+  
+  // Custom dialog state
+  const [activeAssignEnrollment, setActiveAssignEnrollment] = useState(null);
+  const [activePaymentEnrollment, setActivePaymentEnrollment] = useState(null);
+  const [activeBlockEnrollment, setActiveBlockEnrollment] = useState(null);
+  const [activeRequestEnrollment, setActiveRequestEnrollment] = useState(null);
+  
   const limit = 15;
 
   const fetchEnrollments = useCallback(async () => {
@@ -37,54 +64,62 @@ const EnrollmentRequests = () => {
       setEnrollments(data.data.enrollments);
       setTotal(data.data.total);
     } catch {
-      toast.error('Failed to load enrollments');
+      toast.error('Failed to load enrollments requests pipeline');
     } finally {
       setLoading(false);
     }
   }, [page, statusFilter]);
 
-  useEffect(() => { fetchEnrollments(); }, [fetchEnrollments]);
+  useEffect(() => { 
+    fetchEnrollments(); 
+  }, [fetchEnrollments]);
 
-  const handleApprove = async (id) => {
+  const handleVerifyStudent = async (id) => {
     setUpdatingId(id);
     try {
-      const { data } = await api.post(`/enrollments/${id}/approve`);
-      setEnrollments((prev) => prev.map((e) => e.id === id ? { ...e, status: 'enrolled' } : e));
-      toast.success('Student enrolled successfully');
+      await api.patch(`/enrollments/${id}/verify-student`);
+      setEnrollments((prev) => prev.map((e) => e.id === id ? { ...e, request_status: 'Reviewing', status: 'reviewed' } : e));
+      toast.success('Student verified successfully! Application under review');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed');
+      toast.error(err.response?.data?.message || 'Verification update failed');
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const handleReject = async (id) => {
-    if (!confirm('Reject this enrollment request?')) return;
+  const handleApproveEnrollment = async (id) => {
     setUpdatingId(id);
     try {
-      await api.post(`/enrollments/${id}/reject`, { reason: 'Rejected by admin' });
-      setEnrollments((prev) => prev.map((e) => e.id === id ? { ...e, status: 'rejected' } : e));
+      await api.patch(`/enrollments/${id}/approve`);
+      setEnrollments((prev) => prev.map((e) => e.id === id ? { ...e, request_status: 'Approved', status: 'payment_requested' } : e));
+      toast.success('Enrollment approved! Payment request sent to student');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Approval failed');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleRejectEnrollment = async (id) => {
+    const reason = prompt('Enter the rejection reason:');
+    if (reason === null) return; // cancelled
+    setUpdatingId(id);
+    try {
+      await api.post(`/enrollments/${id}/reject`, { reason });
+      setEnrollments((prev) => prev.map((e) => e.id === id ? { ...e, request_status: 'Rejected', status: 'rejected', admin_notes: reason } : e));
       toast.success('Enrollment rejected');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed');
+      toast.error(err.response?.data?.message || 'Rejection failed');
     } finally {
       setUpdatingId(null);
     }
   };
 
-  const handleAdvanceStatus = async (enrollment) => {
-    const next = NEXT_STATUS[enrollment.status];
-    if (!next) return;
-    setUpdatingId(enrollment.id);
-    try {
-      const { data } = await api.patch(`/enrollments/${enrollment.id}/status`, { status: next });
-      setEnrollments((prev) => prev.map((e) => e.id === enrollment.id ? { ...e, status: next } : e));
-      toast.success(`Status → ${STATUS_CONFIG[next]?.label}`);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed');
-    } finally {
-      setUpdatingId(null);
-    }
+  const onEnrollmentUpdated = (id, updatedEnrollment) => {
+    setEnrollments((prev) => prev.map((e) => e.id === id ? { 
+      ...e, 
+      ...updatedEnrollment
+    } : e));
   };
 
   const filtered = search
@@ -98,53 +133,48 @@ const EnrollmentRequests = () => {
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Enrollment Requests</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Enrollment Request Pipeline</h1>
           <p className="text-muted-foreground mt-1">
-            Review and manage student admission workflows.{' '}
-            <span className="font-semibold text-primary">{total} total requests.</span>
+            Review manual course admissions, set amounts, and process multi-step workflows.
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-xl border border-border flex-wrap">
-          {['', 'pending', 'enrolled', 'rejected'].map((s) => (
-            <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
-              className={cn('px-4 py-2 rounded-lg text-sm font-medium transition-all',
-                statusFilter === s ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
-              {s === '' ? 'All' : STATUS_CONFIG[s]?.label || s}
+        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-xl border border-border flex-wrap font-semibold">
+          {['', 'Pending', 'Reviewing', 'Approved', 'AmountAssigned', 'Enrolled', 'Rejected'].map((s) => (
+            <button 
+              key={s} 
+              onClick={() => { setStatusFilter(s); setPage(1); }}
+              className={cn(
+                'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                statusFilter === s 
+                  ? 'bg-background text-foreground shadow-sm border border-white/5' 
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {s === '' ? 'All' : s}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Workflow stepper */}
-      <div className="glass-card p-6 rounded-2xl overflow-x-auto">
-        <div className="flex items-center min-w-[600px] justify-between relative px-4">
-          <div className="absolute top-5 left-0 w-full h-0.5 bg-border z-0" />
-          {WORKFLOW_STEPS.map((step, i) => (
-            <div key={step} className="relative z-10 flex flex-col items-center gap-2">
-              <div className={cn('w-10 h-10 rounded-full flex items-center justify-center border-4 border-background shadow-md text-xs font-bold',
-                i < 3 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground')}>
-                {i < 3 ? <Check size={14} /> : i + 1}
-              </div>
-              <span className={cn('text-[10px] font-bold uppercase tracking-widest whitespace-nowrap',
-                i < 3 ? 'text-primary' : 'text-muted-foreground')}>{step}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Table */}
+      {/* Table grid */}
       <div className="glass-card rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-white/5 flex gap-4 items-center">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input type="text" placeholder="Filter by student or course..." value={search}
+            <input 
+              type="text" 
+              placeholder="Search by student or course..." 
+              value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-background/50 border border-border rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+              className="w-full bg-background/50 border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" 
+            />
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-48"><Loader2 size={36} className="animate-spin text-primary" /></div>
+          <div className="flex items-center justify-center h-48">
+            <Loader2 size={36} className="animate-spin text-primary" />
+          </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">No enrollment requests found.</div>
         ) : (
@@ -154,28 +184,93 @@ const EnrollmentRequests = () => {
                 <tr className="text-xs uppercase text-muted-foreground border-b border-white/5 bg-muted/30">
                   <th className="px-6 py-4 font-semibold">Student</th>
                   <th className="px-6 py-4 font-semibold">Course</th>
-                  <th className="px-6 py-4 font-semibold">Date</th>
+                  <th className="px-6 py-4 font-semibold">Stages</th>
+                  <th className="px-6 py-4 font-semibold">Financials</th>
                   <th className="px-6 py-4 font-semibold">Status</th>
                   <th className="px-6 py-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filtered.map((enr, i) => {
-                  const cfg = STATUS_CONFIG[enr.status] || STATUS_CONFIG.pending;
-                  const canAdvance = !!NEXT_STATUS[enr.status];
+                  const currentStatus = enr.request_status || enr.status || 'Pending';
+                  const cfg = STATUS_CONFIG[currentStatus] || STATUS_CONFIG.Pending;
+                  const stepIndex = cfg.step;
+                  
                   return (
-                    <motion.tr key={enr.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
-                      className="hover:bg-white/5 transition-colors">
+                    <motion.tr 
+                      key={enr.id} 
+                      initial={{ opacity: 0, x: -10 }} 
+                      animate={{ opacity: 1, x: 0 }} 
+                      transition={{ delay: i * 0.04 }}
+                      className="hover:bg-white/5 transition-colors"
+                    >
                       <td className="px-6 py-4">
                         <div className="font-bold text-sm">{enr.Student?.name || '—'}</div>
                         <div className="text-xs text-muted-foreground">{enr.Student?.email}</div>
+                        {enr.Student?.phone && <div className="text-[10px] text-muted-foreground/60">{enr.Student?.phone}</div>}
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm font-medium">{enr.Course?.title || '—'}</div>
-                        {enr.final_fee && <div className="text-xs text-primary font-bold">₹{parseFloat(enr.final_fee).toLocaleString()}</div>}
+                        <div className="text-[10px] text-muted-foreground/80 mt-0.5">Applied: {new Date(enr.createdAt).toLocaleDateString('en-IN')}</div>
                       </td>
-                      <td className="px-6 py-4 text-xs text-muted-foreground">
-                        {new Date(enr.createdAt).toLocaleDateString('en-IN')}
+                      <td className="px-6 py-4">
+                        {/* Mini timeline indicator */}
+                        <div className="flex items-center gap-1">
+                          {WORKFLOW_STEPS.map((step, idx) => {
+                            const isCompleted = stepIndex >= idx && currentStatus !== 'Rejected';
+                            const isCurrent = stepIndex === idx && currentStatus !== 'Rejected';
+                            
+                            return (
+                              <div 
+                                key={step} 
+                                title={step}
+                                className={cn(
+                                  "w-2.5 h-2.5 rounded-full transition-all duration-300",
+                                  currentStatus === 'Rejected' ? 'bg-red-500/20' : 
+                                  isCurrent ? 'bg-primary ring-2 ring-primary/45 scale-125' :
+                                  isCompleted ? 'bg-green-500' : 'bg-muted'
+                                )}
+                              />
+                            );
+                          })}
+                        </div>
+                        <span className="text-[10px] text-muted-foreground block mt-1 font-semibold">
+                          Step {stepIndex + 1} of {WORKFLOW_STEPS.length}: {WORKFLOW_STEPS[stepIndex] || 'Completed'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {enr.final_amount ? (
+                          <div className="space-y-1">
+                            <div className="text-xs font-bold text-primary flex items-center gap-0.5">
+                              <span className="text-[10px] font-normal text-muted-foreground mr-1">Fee:</span>
+                              ₹{parseFloat(enr.final_amount).toLocaleString('en-IN')}
+                            </div>
+                            {parseFloat(enr.discount_amount) > 0 && (
+                              <div className="text-[10px] text-green-500 font-medium">
+                                Disc: -₹{parseFloat(enr.discount_amount).toLocaleString('en-IN')}
+                              </div>
+                            )}
+                            <div className="text-[10px] text-emerald-500 font-semibold flex items-center gap-0.5">
+                              <span className="text-[9px] font-normal text-muted-foreground mr-1">Paid:</span>
+                              ₹{parseFloat(enr.paid_amount || 0).toLocaleString('en-IN')}
+                            </div>
+                            <div className="text-[10px] font-bold flex items-center gap-0.5">
+                              <span className="text-[9px] font-normal text-muted-foreground mr-1">Due:</span>
+                              {parseFloat(enr.final_amount) - parseFloat(enr.paid_amount || 0) <= 0 ? (
+                                <span className="text-emerald-500 flex items-center gap-0.5">₹0 <span className="text-[9px]">✓ Fully Paid</span></span>
+                              ) : (
+                                <span className="text-orange-500">₹{(parseFloat(enr.final_amount) - parseFloat(enr.paid_amount || 0)).toLocaleString('en-IN')}</span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Pricing Pending</span>
+                        )}
+                        {enr.payment_due_date && (
+                          <div className="text-[9px] text-muted-foreground/60 flex items-center gap-0.5 mt-1">
+                            <Calendar size={10} /> Due: {new Date(enr.payment_due_date).toLocaleDateString()}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <span className={cn('px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border', cfg.style)}>
@@ -188,24 +283,90 @@ const EnrollmentRequests = () => {
                             <Loader2 size={18} className="animate-spin text-primary" />
                           ) : (
                             <>
-                              {canAdvance && enr.status !== 'enrolled' && enr.status !== 'rejected' && (
-                                <button onClick={() => handleAdvanceStatus(enr)}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white text-xs font-bold transition-all">
-                                  <ChevronDown size={13} className="-rotate-90" />
-                                  Advance
+                              {/* STAGE 1: Verify Student Details */}
+                              {(currentStatus === 'Pending' || currentStatus === 'pending') && (
+                                <button 
+                                  onClick={() => handleVerifyStudent(enr.id)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary text-white hover:bg-primary/95 text-xs font-bold transition-all shadow-sm shadow-primary/10"
+                                >
+                                  Verify Details
                                 </button>
                               )}
-                              {enr.status !== 'enrolled' && enr.status !== 'rejected' && (
-                                <>
-                                  <button onClick={() => handleApprove(enr.id)}
-                                    className="p-2 rounded-lg hover:bg-green-500/10 text-green-500 transition-all" title="Enroll Now">
-                                    <Check size={16} />
+
+                              {/* STAGE 2: Set Course Amount */}
+                              {(currentStatus === 'Reviewing' || currentStatus === 'reviewed') && (
+                                <button 
+                                  onClick={() => setActiveAssignEnrollment(enr)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-orange-500 text-white hover:bg-orange-600 text-xs font-bold transition-all shadow-sm"
+                                >
+                                  Assign Amount
+                                </button>
+                              )}
+
+                              {/* STAGE 3: Approve Request */}
+                              {currentStatus === 'AmountAssigned' && (
+                                <button 
+                                  onClick={() => handleApproveEnrollment(enr.id)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-cyan-500 text-white hover:bg-cyan-600 text-xs font-bold transition-all shadow-sm"
+                                >
+                                  Approve Request
+                                </button>
+                              )}
+
+                              {/* STAGE 4: Verify Payment Submitted */}
+                              {currentStatus === 'PaymentSubmitted' && (
+                                <button 
+                                  onClick={() => navigate('/verify-payments')}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-sm shadow-emerald-500/10"
+                                >
+                                  Verify Payment
+                                </button>
+                              )}
+
+                              {/* Reject action visible for all non-final items */}
+                              {currentStatus !== 'Enrolled' && currentStatus !== 'Rejected' && (
+                                <button 
+                                  onClick={() => handleRejectEnrollment(enr.id)}
+                                  className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-all border border-transparent hover:border-red-500/10" 
+                                  title="Reject"
+                                >
+                                  <X size={15} />
+                                </button>
+                              )}
+
+                              {/* Manual Payment Action */}
+                              {enr.final_amount && parseFloat(enr.paid_amount || 0) < parseFloat(enr.final_amount) && currentStatus !== 'Rejected' && (
+                                <div className="flex items-center gap-1">
+                                  <button 
+                                    onClick={() => setActivePaymentEnrollment(enr)}
+                                    className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-all border border-transparent hover:border-primary/10" 
+                                    title="Record Manual Payment"
+                                  >
+                                    <Wallet size={15} />
                                   </button>
-                                  <button onClick={() => handleReject(enr.id)}
-                                    className="p-2 rounded-lg hover:bg-red-500/10 text-red-500 transition-all" title="Reject">
-                                    <X size={16} />
+                                  <button 
+                                    onClick={() => setActiveRequestEnrollment(enr)}
+                                    className="p-1.5 rounded-lg hover:bg-indigo-500/10 text-indigo-500 transition-all border border-transparent hover:border-indigo-500/10" 
+                                    title="Send Payment Request"
+                                  >
+                                    <Send size={15} />
                                   </button>
-                                </>
+                                </div>
+                              )}
+
+                              {/* Block / Unblock Access Action */}
+                              {(currentStatus === 'Enrolled' || currentStatus === 'enrolled' || enr.status === 'enrolled') && (
+                                <button 
+                                  onClick={() => setActiveBlockEnrollment(enr)}
+                                  className={`p-1.5 rounded-lg transition-all border border-transparent ${
+                                    enr.is_blocked 
+                                      ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20 shadow-sm shadow-red-500/10' 
+                                      : 'hover:bg-red-500/10 text-muted-foreground hover:text-red-500 hover:border-red-500/10'
+                                  }`}
+                                  title={enr.is_blocked ? "Unblock Course Access" : "Block Course Access"}
+                                >
+                                  <Ban size={15} />
+                                </button>
                               )}
                             </>
                           )}
@@ -222,13 +383,55 @@ const EnrollmentRequests = () => {
         <div className="p-4 border-t border-white/5 flex items-center justify-between bg-muted/10">
           <p className="text-xs text-muted-foreground">Showing {filtered.length} of {total}</p>
           <div className="flex gap-2">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-              className="px-3 py-1 rounded-lg border border-border text-xs font-medium hover:bg-muted disabled:opacity-40">Previous</button>
-            <button onClick={() => setPage((p) => p + 1)} disabled={page >= Math.ceil(total / limit)}
-              className="px-3 py-1 rounded-lg border border-primary bg-primary text-white text-xs font-medium">Next</button>
+            <button 
+              onClick={() => setPage((p) => Math.max(1, p - 1))} 
+              disabled={page === 1}
+              className="px-3 py-1 rounded-lg border border-border text-xs font-medium hover:bg-muted disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <button 
+              onClick={() => setPage((p) => p + 1)} 
+              disabled={page >= Math.ceil(total / limit)}
+              className="px-3 py-1 rounded-lg border border-primary bg-primary text-white text-xs font-medium"
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Amount Assignment Modal Panel */}
+      <AmountAssignModal 
+        isOpen={!!activeAssignEnrollment}
+        onClose={() => setActiveAssignEnrollment(null)}
+        enrollment={activeAssignEnrollment}
+        onUpdate={onEnrollmentUpdated}
+      />
+
+      {/* Manual Payment Modal Panel */}
+      <ManualPaymentModal 
+        isOpen={!!activePaymentEnrollment}
+        onClose={() => setActivePaymentEnrollment(null)}
+        enrollment={activePaymentEnrollment}
+        onUpdate={onEnrollmentUpdated}
+      />
+
+      {/* Block Access Modal Panel */}
+      <BlockAccessModal 
+        isOpen={!!activeBlockEnrollment}
+        onClose={() => setActiveBlockEnrollment(null)}
+        enrollment={activeBlockEnrollment}
+        onUpdate={onEnrollmentUpdated}
+      />
+
+      {/* Request Payment Modal Panel */}
+      <RequestPaymentModal 
+        isOpen={!!activeRequestEnrollment}
+        onClose={() => setActiveRequestEnrollment(null)}
+        enrollment={activeRequestEnrollment}
+        onUpdate={onEnrollmentUpdated}
+      />
     </div>
   );
 };

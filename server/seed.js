@@ -4,7 +4,7 @@ const seedStudent = require('./seeders/studentSeeder');
 
 const runSeeders = async () => {
   try {
-    // Sync DB without dropping (unless needed)
+    // Sync DB without dropping
     await db.sequelize.sync();
     
     await seedAdmin();

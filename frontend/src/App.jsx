@@ -10,6 +10,7 @@ import Courses from './pages/Courses';
 import Students from './pages/Students';
 import EnrollmentRequests from './pages/EnrollmentRequests';
 import Payments from './pages/Payments';
+import PaymentVerification from './pages/PaymentVerification';
 import LiveClasses from './pages/LiveClasses';
 import Materials from './pages/Materials';
 import Notifications from './pages/Notifications';
@@ -34,6 +35,7 @@ function App() {
             <Route path="/courses" element={<Courses />} />
             <Route path="/students" element={<Students />} />
             <Route path="/enrollments" element={<EnrollmentRequests />} />
+            <Route path="/verify-payments" element={<PaymentVerification />} />
             <Route path="/payments" element={<Payments />} />
             <Route path="/live-classes" element={<LiveClasses />} />
             <Route path="/materials" element={<Materials />} />

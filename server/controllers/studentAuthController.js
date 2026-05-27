@@ -14,6 +14,11 @@ const generateToken = (id) => {
 exports.register = async (req, res) => {
   const { name, email, password, phone } = req.body;
 
+  console.log("controller res here");
+  console.log("email : " + email);
+  console.log("password : " + password);
+  console.log("phone : " + phone);
+  console.log("name : " + name);
   try {
     const studentExists = await Student.findOne({ where: { email } });
 
