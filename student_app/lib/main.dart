@@ -15,9 +15,12 @@ import 'screens/cart/enrollment_status_screen.dart';
 import 'screens/cart/payment_upload_screen.dart';
 import 'screens/courses/course_detail_screen.dart';
 import 'screens/courses/video_player_screen.dart';
+import 'screens/courses/pdf_viewer_screen.dart';
 import 'screens/my_courses/my_courses_screen.dart';
 import 'core/constants/app_constants.dart';
 import 'models/course_model.dart';
+import 'providers/progress_provider.dart';
+import 'screens/performance/performance_screen.dart';
 
 void main() {
   runApp(
@@ -26,6 +29,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CourseProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => ProgressProvider()),
       ],
       child: const MyApp(),
     ),
@@ -71,6 +75,19 @@ final _router = GoRouter(
         );
       },
     ),
+    GoRoute(
+      path: '/course/:id/pdf',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>;
+        final courseId = int.tryParse(state.pathParameters['id'] ?? '');
+        return PDFViewerScreen(
+          pdfUrl: extra['pdfUrl'] as String,
+          title: extra['title'] as String,
+          courseId: courseId,
+          moduleId: extra['moduleId'] as int?,
+        );
+      },
+    ),
   ],
 );
 
@@ -109,6 +126,7 @@ class _MainShellState extends State<MainShell> {
   final List<Widget> _screens = const [
     HomeScreen(),
     MyCoursesScreen(),
+    PerformanceScreen(),
   ];
 
   @override
@@ -130,6 +148,7 @@ class _MainShellState extends State<MainShell> {
               children: [
                 _navItem(0, Icons.home_rounded, Icons.home_outlined, 'Home'),
                 _navItem(1, Icons.play_lesson_rounded, Icons.play_lesson_outlined, 'My Courses'),
+                _navItem(2, Icons.analytics_rounded, Icons.analytics_outlined, 'Performance'),
               ],
             ),
           ),

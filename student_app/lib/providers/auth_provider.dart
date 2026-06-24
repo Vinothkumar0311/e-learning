@@ -51,15 +51,15 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(String name, String password) async {
     print("provider login here");
-    print("email : $email");
+    print("name : $name");
     print("password : $password");
     _isLoading = true;
     notifyListeners();
 
     try {
-      final res = await _authService.login(email, password);
+      final res = await _authService.login(name, password);
       _token = res['data']['token'];
       _user = UserModel.fromJson(res['data']);
       

@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/course_provider.dart';
 import '../../providers/cart_provider.dart';
-import '../../widgets/course_card.dart';
 import '../../core/constants/app_constants.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     Future.microtask(() {
       if (mounted) {
-        context.read<CourseProvider>().fetchCourses();
+        // Pre-fetch assigned courses so My Courses tab is ready
         context.read<CartProvider>().fetchMyCourses();
       }
     });
@@ -29,15 +27,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    
+    final assignedCount = context.watch<CartProvider>().myCourses.length;
+
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
-          await context.read<CourseProvider>().fetchCourses(showLoading: true);
-          await context.read<CartProvider>().fetchMyCourses();
-          await context.read<CartProvider>().fetchEnrollments(showLoading: false);
-        },
+            await context.read<CartProvider>().fetchMyCourses();
+          },
           color: AppConstants.primaryColor,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -45,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ─── Header Row ──────────────────────────────────────────
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -77,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                             const Text(
-                              'What do you want to learn today?',
+                              'Ready to learn today?',
                               style: TextStyle(color: Colors.grey, fontSize: 12),
                             ),
                           ],
@@ -87,64 +85,50 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       children: [
                         IconButton(
-                          icon: Badge.count(
-                            count: context.watch<CartProvider>().cartCount,
-                            backgroundColor: AppConstants.primaryColor,
-                            child: const Icon(Icons.shopping_cart_outlined, size: 24),
-                          ),
-                          onPressed: () => context.push('/cart'),
-                          tooltip: 'My Course Cart',
-                        ),
-                        // IconButton(
-                        //   icon: const Icon(Icons.play_lesson_outlined, size: 24),
-                        //   onPressed: () => context.go('/my-courses'),
-                        //   tooltip: 'My Courses',
-                        // ),
-                        IconButton(
                           icon: const Icon(Icons.assignment_outlined, size: 24),
                           onPressed: () => context.push('/enrollment-status'),
                           tooltip: 'Track Admissions',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.logout_rounded, size: 24, color: Colors.redAccent),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Logout'),
+                                content: const Text('Are you sure you want to logout?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                                    child: const Text('Logout'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && context.mounted) {
+                              await context.read<AuthProvider>().logout();
+                              if (context.mounted) {
+                                context.go('/login');
+                              }
+                            }
+                          },
+                          tooltip: 'Logout',
                         ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                // Modern Premium Search Bar
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey[200]!),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.search_rounded, color: Colors.grey[400]),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: 'Search for courses, topics...',
-                            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppConstants.primaryColor.withAlpha(20),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.tune_rounded, color: AppConstants.primaryColor, size: 18),
-                      ),
-                    ],
-                  ),
-                ),
+
                 const SizedBox(height: 28),
+
+                // ─── Welcome Banner ──────────────────────────────────────
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [AppConstants.primaryColor, AppConstants.secondaryColor],
@@ -167,77 +151,130 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              '40% OFF',
+                              'Your Learning Journey',
                               style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
                             ),
-                            const Text(
-                              'Summer Learning Sale',
-                              style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$assignedCount Course${assignedCount != 1 ? 's' : ''} Assigned',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
                             ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () => context.go('/my-courses'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 foregroundColor: AppConstants.primaryColor,
-                                minimumSize: const Size(100, 36),
+                                minimumSize: const Size(120, 36),
                                 padding: const EdgeInsets.symmetric(horizontal: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                              child: const Text('Get Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              child: const Text(
+                                'Go to My Courses',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.auto_awesome, color: Colors.white54, size: 64),
+                      const Icon(Icons.school_rounded, color: Colors.white54, size: 64),
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Popular Courses', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('See All', style: TextStyle(color: AppConstants.primaryColor, fontWeight: FontWeight.bold)),
-                  ],
+
+                const SizedBox(height: 28),
+
+                // ─── Quick Action Cards ──────────────────────────────────
+                const Text(
+                  'Quick Access',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 16),
-                Consumer<CourseProvider>(
-                  builder: (context, provider, _) {
-                    if (provider.isLoading && provider.courses.isEmpty) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 32.0),
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    if (provider.courses.isEmpty) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 32.0),
-                          child: Text('No courses available'),
-                        ),
-                      );
-                    }
-                    return GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        childAspectRatio: 0.90,
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _QuickCard(
+                        icon: Icons.play_lesson_rounded,
+                        label: 'My Courses',
+                        sublabel: '$assignedCount assigned',
+                        onTap: () => context.go('/my-courses'),
                       ),
-                      itemCount: provider.courses.length,
-                      itemBuilder: (context, index) {
-                        return CourseCard(course: provider.courses[index]);
-                      },
-                    );
-                  },
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _QuickCard(
+                        icon: Icons.track_changes_rounded,
+                        label: 'Admission Status',
+                        sublabel: 'View progress',
+                        onTap: () => context.push('/enrollment-status'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Quick Action Card Widget ────────────────────────────────────────────────
+class _QuickCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String sublabel;
+  final VoidCallback onTap;
+
+  const _QuickCard({
+    required this.icon,
+    required this.label,
+    required this.sublabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(8),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: Border.all(color: Colors.grey.shade100),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppConstants.primaryColor.withAlpha(20),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: AppConstants.primaryColor, size: 22),
+            ),
+            const SizedBox(height: 12),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 2),
+            Text(sublabel, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+          ],
         ),
       ),
     );

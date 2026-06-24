@@ -7,11 +7,11 @@ import '../core/utils/error_handler.dart';
 class AuthService {
   final _dio = DioClient().dio;
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String name, String password) async {
     try {
       print("DEBUG: login request to ${_dio.options.baseUrl}/student/login");
       final response = await _dio.post('/student/login', data: {
-        'email': email,
+        'name': name,
         'password': password,
       });
       final data = response.data;

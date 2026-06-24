@@ -13,6 +13,8 @@ const Cart = require('./Cart');
 const CartItem = require('./CartItem');
 const PaymentAuditLog = require('./PaymentAuditLog');
 const CourseSection = require('./CourseSection');
+const StudentAssignedCourse = require('./StudentAssignedCourse');
+const StudentProgress = require('./StudentProgress');
 
 // --- Associations ---
 
@@ -92,6 +94,26 @@ Material.belongsTo(Course, { foreignKey: 'course_id' });
 User.hasMany(Notification, { foreignKey: 'sent_by' });
 Notification.belongsTo(User, { foreignKey: 'sent_by', as: 'sender' });
 
+// --- StudentAssignedCourse associations ---
+Student.hasMany(StudentAssignedCourse, { foreignKey: 'student_id', as: 'assignedCourses' });
+StudentAssignedCourse.belongsTo(Student, { foreignKey: 'student_id' });
+
+Course.hasMany(StudentAssignedCourse, { foreignKey: 'course_id', as: 'assignedStudents' });
+StudentAssignedCourse.belongsTo(Course, { foreignKey: 'course_id' });
+
+User.hasMany(StudentAssignedCourse, { foreignKey: 'assigned_by', as: 'courseAssignments' });
+StudentAssignedCourse.belongsTo(User, { foreignKey: 'assigned_by', as: 'assignedBy' });
+
+// --- StudentProgress associations ---
+Student.hasMany(StudentProgress, { foreignKey: 'student_id', as: 'progressList' });
+StudentProgress.belongsTo(Student, { foreignKey: 'student_id' });
+
+Course.hasMany(StudentProgress, { foreignKey: 'course_id', as: 'courseProgress' });
+StudentProgress.belongsTo(Course, { foreignKey: 'course_id' });
+
+CourseModule.hasMany(StudentProgress, { foreignKey: 'module_id', as: 'moduleProgress' });
+StudentProgress.belongsTo(CourseModule, { foreignKey: 'module_id' });
+
 module.exports = {
   sequelize,
   User,
@@ -107,6 +129,8 @@ module.exports = {
   Cart,
   CartItem,
   PaymentAuditLog,
-  CourseSection
+  CourseSection,
+  StudentAssignedCourse,
+  StudentProgress
 };
 

@@ -33,7 +33,10 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('My Courses', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'My Courses',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -48,7 +51,11 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
           final courses = cartProvider.myCourses;
 
           if (cartProvider.isLoading && courses.isEmpty) {
-            return const Center(child: CircularProgressIndicator(color: AppConstants.primaryColor));
+            return const Center(
+              child: CircularProgressIndicator(
+                color: AppConstants.primaryColor,
+              ),
+            );
           }
 
           if (courses.isEmpty) {
@@ -85,33 +92,90 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                 color: AppConstants.primaryColor.withAlpha(20),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.school_rounded, size: 52, color: AppConstants.primaryColor),
+              child: const Icon(
+                Icons.school_rounded,
+                size: 52,
+                color: AppConstants.primaryColor,
+              ),
             ),
             const SizedBox(height: 24),
             const Text(
               'No Courses Yet',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 10),
             Text(
-              'Courses you purchase will appear here.\nStart exploring and enroll in a course!',
+              'No courses have been assigned to you yet.\nPlease contact your administrator to get access.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600], fontSize: 15, height: 1.5),
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 15,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 28),
-            ElevatedButton.icon(
-              onPressed: () => context.go('/home'),
-              icon: const Icon(Icons.explore_rounded),
-              label: const Text('Browse Courses', style: TextStyle(fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppConstants.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppConstants.primaryColor.withAlpha(12),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppConstants.primaryColor.withAlpha(40),
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: AppConstants.primaryColor,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Contact your administrator',
+                    style: TextStyle(
+                      color: AppConstants.primaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showBlockedDialog(BuildContext context, String? reason) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.gpp_bad_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Access Suspended', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          reason != null && reason.trim().isNotEmpty
+              ? reason
+              : 'your course has been blocked by admin',
+          style: const TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -124,11 +188,17 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
     }
 
     final sectionCount = course.sections?.length ?? 0;
-    final moduleCount = course.sections?.fold<int>(
-          0, (sum, s) => sum + (s.modules?.length ?? 0)) ?? 0;
+    final moduleCount =
+        course.sections?.fold<int>(
+          0,
+          (sum, s) => sum + (s.modules?.length ?? 0),
+        ) ??
+        0;
 
     return GestureDetector(
-      onTap: () => context.push('/course/${course.id}'),
+      onTap: course.isBlocked
+          ? () => _showBlockedDialog(context, course.blockReason)
+          : () => context.push('/course/${course.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
@@ -147,39 +217,62 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
           children: [
             // Thumbnail
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
+              ),
               child: Stack(
                 children: [
                   imageUrl != null
                       ? CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          height: 160,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            height: 160,
-                            color: Colors.grey[100],
-                            child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor)),
-                          ),
-                          errorWidget: (_, __, ___) => _buildPlaceholder(course.title),
-                        )
+                        imageUrl: imageUrl,
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        placeholder:
+                            (_, __) => Container(
+                              height: 160,
+                              color: Colors.grey[100],
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppConstants.primaryColor,
+                                ),
+                              ),
+                            ),
+                        errorWidget:
+                            (_, __, ___) => _buildPlaceholder(course.title),
+                      )
                       : _buildPlaceholder(course.title),
-                  // Enrolled badge
+                  // Enrolled/Blocked badge
                   Positioned(
                     top: 12,
                     right: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.green,
+                        color: course.isBlocked ? Colors.red : Colors.green,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.check_circle, color: Colors.white, size: 13),
-                          SizedBox(width: 4),
-                          Text('Enrolled', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          Icon(
+                            course.isBlocked ? Icons.gpp_bad_rounded : Icons.check_circle,
+                            color: Colors.white,
+                            size: 13,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            course.isBlocked ? 'Blocked' : 'Enrolled',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -196,7 +289,11 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                     course.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, height: 1.3),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      height: 1.3,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -207,25 +304,41 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
                   Row(
                     children: [
                       if (sectionCount > 0) ...[
-                        _stat(Icons.menu_book_rounded, '$sectionCount sections'),
+                        _stat(
+                          Icons.menu_book_rounded,
+                          '$sectionCount sections',
+                        ),
                         const SizedBox(width: 16),
                       ],
                       if (moduleCount > 0)
-                        _stat(Icons.play_circle_outline_rounded, '$moduleCount lessons'),
+                        _stat(
+                          Icons.play_circle_outline_rounded,
+                          '$moduleCount lessons',
+                        ),
                     ],
                   ),
                   const SizedBox(height: 14),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () => context.push('/course/${course.id}'),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                      label: const Text('Continue Learning', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: course.isBlocked
+                          ? () => _showBlockedDialog(context, course.blockReason)
+                          : () => context.push('/course/${course.id}'),
+                      icon: Icon(
+                        course.isBlocked ? Icons.lock_rounded : Icons.play_arrow_rounded,
+                        size: 18,
+                      ),
+                      label: Text(
+                        course.isBlocked ? 'Blocked' : 'Continue Learning',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppConstants.primaryColor,
+                        backgroundColor: course.isBlocked ? Colors.red[700] : AppConstants.primaryColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -265,10 +378,18 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
           Positioned(
             right: -15,
             bottom: -15,
-            child: Icon(Icons.school_rounded, color: Colors.white.withAlpha(25), size: 100),
+            child: Icon(
+              Icons.school_rounded,
+              color: Colors.white.withAlpha(25),
+              size: 100,
+            ),
           ),
           Center(
-            child: Icon(Icons.school_rounded, color: Colors.white.withAlpha(210), size: 48),
+            child: Icon(
+              Icons.school_rounded,
+              color: Colors.white.withAlpha(210),
+              size: 48,
+            ),
           ),
         ],
       ),

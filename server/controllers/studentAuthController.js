@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const { Student } = require('../models');
 const { success, error } = require('../utils/response');
+const { Op } = require('sequelize');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -49,25 +50,48 @@ exports.register = async (req, res) => {
 // @desc    Auth student & get token
 // @route   POST /api/student/login
 // @access  Public
+// Supports two login modes:
+//   1. Admin-created students: { name: "Vinothkumar S", password: "9876543210" }
+//   2. Self-registered students (legacy): { email: "...", password: "..." }
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, name, password } = req.body;
 
   try {
-    if (!email || !password) {
-      return error(res, 'Please provide an email and password', 400);
+    if (!password) {
+      return error(res, 'Please provide a password', 400);
     }
 
-    const student = await Student.findOne({ where: { email } });
+    let student = null;
 
-    if (!student) {
-      console.log(`❌ Login failed: Student not found (${email})`);
-      return error(res, 'Invalid credentials', 401);
+    if (name) {
+      // Name-based login (admin-created students)
+      // Case-insensitive match so capitalisation differences don't matter
+      student = await Student.findOne({
+        where: { name: { [Op.like]: name.trim() } }
+      });
+      if (!student) {
+        console.log(`❌ Login failed: Student not found by name (${name})`);
+        return error(res, 'Invalid credentials', 401);
+      }
+    } else if (email) {
+      // Email login (self-registered / legacy students)
+      student = await Student.findOne({ where: { email } });
+      if (!student) {
+        console.log(`❌ Login failed: Student not found (${email})`);
+        return error(res, 'Invalid credentials', 401);
+      }
+    } else {
+      return error(res, 'Please provide your full name or email', 400);
     }
 
     const isMatch = await student.matchPassword(password);
     if (!isMatch) {
-      console.log(`❌ Login failed: Password mismatch for ${email}`);
+      console.log(`❌ Login failed: Password mismatch for student ${student.id}`);
       return error(res, 'Invalid credentials', 401);
+    }
+
+    if (!student.is_active) {
+      return error(res, 'Your account has been deactivated. Contact your administrator.', 403);
     }
 
     const token = generateToken(student.id);
@@ -76,6 +100,7 @@ exports.login = async (req, res) => {
       id: student.id,
       name: student.name,
       email: student.email,
+      mobile_number: student.mobile_number,
       token
     }, 'Login successful');
   } catch (err) {

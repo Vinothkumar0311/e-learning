@@ -3,6 +3,7 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:provider/provider.dart';
 import '../../models/course_model.dart';
 import '../../providers/cart_provider.dart';
+import '../../providers/progress_provider.dart';
 import '../../core/constants/app_constants.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
@@ -95,13 +96,81 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cartProvider = context.watch<CartProvider>();
+    final myCourse = cartProvider.myCourses.any((c) => c.id == widget.course.id)
+        ? cartProvider.myCourses.firstWhere((c) => c.id == widget.course.id)
+        : null;
+    final isBlocked = widget.course.isBlocked || (myCourse?.isBlocked ?? false);
+    final blockReason = widget.course.blockReason ?? myCourse?.blockReason ?? 'Access suspended by Administrator';
+
+    if (isBlocked) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          title: Text(widget.course.title),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.gpp_bad_rounded,
+                  color: Colors.red,
+                  size: 80,
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'ACCESS SUSPENDED',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  blockReason,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Go Back', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     if (_youtubeController == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
-
-    final cartProvider = context.watch<CartProvider>();
 
     return YoutubePlayerBuilder(
       onExitFullScreen: () {
@@ -119,6 +188,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           _isPlayerReady = true;
         },
         onEnded: (data) {
+          // Record lesson progress
+          context.read<ProgressProvider>().markComplete(widget.course.id, _currentModule.id);
           // Try to play next module automatically
           _playNextModule();
         },
@@ -355,6 +426,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           if (module.type == 'video') {
             _changeModule(module);
           } else {
+            // Record lesson progress for non-video material
+            context.read<ProgressProvider>().markComplete(widget.course.id, module.id);
             // Launch other material types
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Opening document materials...')),

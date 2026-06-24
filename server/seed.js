@@ -1,6 +1,7 @@
 const db = require('./models');
 const seedAdmin = require('./seeders/adminSeeder');
 const seedStudent = require('./seeders/studentSeeder');
+const seedDatabase = require('./seeders/dbSeedMaster');
 
 const runSeeders = async () => {
   try {
@@ -9,6 +10,7 @@ const runSeeders = async () => {
     
     await seedAdmin();
     await seedStudent();
+    await seedDatabase();
     
     console.log('✨ All seeders completed successfully');
     process.exit(0);

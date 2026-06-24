@@ -28,6 +28,12 @@ const Student = sequelize.define('Student', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  mobile_number: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+    comment: 'Mobile number used as login password for admin-created students'
+  },
   avatar: {
     type: DataTypes.STRING,
     allowNull: true
