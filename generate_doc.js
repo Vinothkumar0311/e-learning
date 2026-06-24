@@ -13,11 +13,6 @@ if (!fs.existsSync(readmePath)) {
 // Read README.md
 const markdownContent = fs.readFileSync(readmePath, 'utf8');
 
-// Escape markdown text so it can safely sit inside a JS template literal
-const escapedMarkdown = markdownContent
-  .replace(/\\/g, '\\\\')
-  .replace(/`/g, '\\`')
-  .replace(/\${/g, '\\${');
 
 // HTML Template
 const htmlTemplate = `<!DOCTYPE html>
@@ -39,7 +34,7 @@ const htmlTemplate = `<!DOCTYPE html>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" id="prism-theme" />
   
   <!-- MarkedJS for Markdown Parsing -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
 
   <script>
     tailwind.config = {
@@ -269,18 +264,39 @@ const htmlTemplate = `<!DOCTYPE html>
   </div>
 
   <!-- Raw Markdown script holder -->
-  <script id="raw-markdown" type="text/markdown">${escapedMarkdown}</script>
+  <script id="raw-markdown" type="text/markdown">__MARKDOWN_CONTENT__</script>
 
   <!-- Marked and prism JS libraries -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-env.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-dart.min.js"></script>
 
   <script>
+    // Global Error Logger for UI feedback
+    window.addEventListener('error', function(e) {
+      // Ignore resource loading errors (which do not have a message)
+      if (!e.message && e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK' || e.target.tagName === 'IMG')) {
+        console.warn("Resource failed to load:", e.target.src || e.target.href);
+        return;
+      }
+
+      console.error("Global Error Caught: ", e);
+      const container = document.getElementById('readme-content');
+      if (container) {
+        container.innerHTML = \`<div class="p-6 bg-red-500/10 border border-red-500 rounded-2xl text-red-600 dark:text-red-400">
+          <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            JavaScript Runtime Error
+          </h3>
+          <p class="font-mono text-sm bg-slate-900 p-3 rounded-lg border border-slate-800 text-slate-300">\${e.message}</p>
+          <p class="text-xs text-slate-500 mt-2">Line \${e.lineno}, Col \${e.colno} in \${e.filename}</p>
+        </div>\`;
+      }
+    }, true); // Use capture phase to intercept resource errors
+
     // Theme Management
     const themeToggle = document.getElementById('theme-toggle');
     const htmlEl = document.documentElement;
@@ -312,6 +328,7 @@ const htmlTemplate = `<!DOCTYPE html>
     renderer.heading = function(text, level) {
       const slug = text.toLowerCase()
         .replace(/[^\\w\\s\\-]/g, '')
+        .trim()
         .replace(/\\s+/g, '-');
       
       // We render anchor links
@@ -336,7 +353,7 @@ const htmlTemplate = `<!DOCTYPE html>
       } else if (cleanQuote.includes('[!IMPORTANT]')) {
         alertClass = 'alert-important alert-box text-purple-800 dark:text-purple-200 border-purple-500 dark:border-purple-400';
         title = 'IMPORTANT';
-        icon = '<svg class="w-4 h-4 inline-block mr-1.5 mr-1.5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.952 11.952 0 01-9.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>';
+        icon = '<svg class="w-4 h-4 inline-block mr-1.5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.952 11.952 0 01-9.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>';
       } else if (cleanQuote.includes('[!WARNING]')) {
         alertClass = 'alert-warning alert-box text-amber-800 dark:text-amber-200 border-amber-500 dark:border-amber-400';
         title = 'WARNING';
@@ -351,7 +368,7 @@ const htmlTemplate = `<!DOCTYPE html>
       
       const formattedQuote = cleanQuote
         .replace(/\\s*\\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\\]\\s*/, '')
-        .replace(/<p>/, \`<p class="text-sm font-semibold flex items-center gap-1 mb-1">\${icon}\${title}</p><p class="text-sm opacity-90 leading-relaxed">\`);
+        .replace(/<p>/, \`<p class="text-sm font-semibold flex items-center gap-1 mb-1">\text-xs \${icon}\${title}</p><p class="text-sm opacity-90 leading-relaxed">\`);
         
       return \`<div class="\${alertClass}">\${formattedQuote}</div>\`;
     };
@@ -373,7 +390,12 @@ const htmlTemplate = `<!DOCTYPE html>
       </div>\`;
     };
 
-    marked.setOptions({ renderer });
+    // Modern Marked v4+ initialization support
+    if (typeof marked.use === 'function') {
+      marked.use({ renderer });
+    } else {
+      marked.setOptions({ renderer });
+    }
 
     // Render markdown content
     document.getElementById('readme-content').innerHTML = marked.parse(md);
@@ -402,7 +424,7 @@ const htmlTemplate = `<!DOCTYPE html>
       });
     });
 
-    // Populate Sidebar Navigation & "On This Page" List
+    // Populate Sidebar Navigation & "On This Page" List (Safe Extractor)
     const headings = Array.from(document.querySelectorAll('#readme-content h2, #readme-content h3'));
     const sidebarNav = document.getElementById('sidebar-nav');
     const onThisPage = document.getElementById('on-this-page');
@@ -413,9 +435,12 @@ const htmlTemplate = `<!DOCTYPE html>
     let currentSectionDiv = null;
 
     headings.forEach(heading => {
-      const text = heading.childNodes[0].textContent; // ignore # anchor link
+      // Safe text extraction ignoring anchor links
+      const text = heading.textContent.replace(/#$/, '').trim();
       const id = heading.id;
       const level = heading.tagName.toLowerCase();
+
+      if (!text) return; // Skip empty headings
 
       // Right Sidebar - On This Page Link
       if (level === 'h2') {
@@ -576,6 +601,9 @@ const htmlTemplate = `<!DOCTYPE html>
 </html>
 `;
 
+// Inject raw markdown content directly to avoid escaping issues
+const finalHtml = htmlTemplate.replace('__MARKDOWN_CONTENT__', () => markdownContent);
+
 // Write compiled HTML
-fs.writeFileSync(outputPath, htmlTemplate);
+fs.writeFileSync(outputPath, finalHtml);
 console.log('✅ view_readme.html compiled successfully with embedded README.md contents!');

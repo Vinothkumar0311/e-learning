@@ -17,7 +17,7 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" id="prism-theme" />
   
   <!-- MarkedJS for Markdown Parsing -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
 
   <script>
     tailwind.config = {
@@ -299,14 +299,14 @@ A complete, production-ready e-learning platform with a **React Admin Dashboard*
 | **Admin Frontend** | React 18, Vite, Tailwind CSS, Framer Motion, Recharts (Charts), Lucide Icons, Sonner |
 | **Backend API** | Node.js, Express 5, Sequelize ORM, MySQL, Multer (file uploads), Nodemailer |
 | **Student App** | Flutter (Dart), Provider (State Management), GoRouter, Dio (HTTP Client), CachedNetworkImage, flutter_cached_pdfview |
-| **Authentication** | JWT — separate middleware for Admin (\`protect\`) and Students (\`studentProtect\`) |
+| **Authentication** | JWT — separate middleware for Admin (`protect`) and Students (`studentProtect`) |
 | **Media Streaming** | YouTube Player Flutter with fullscreen support, auto-next, and gesture controls |
 
 ---
 
 ## Project Structure
 
-\`\`\`
+```
 e-learning/
 ├── server/          # Node.js + Express REST API
 │   ├── controllers/ # Route handlers (auth, courses, progress, notifications, etc.)
@@ -347,7 +347,7 @@ e-learning/
         └── services/
             ├── progress_service.dart  # Connects to backend progress endpoints
             └── ...
-\`\`\`
+```
 
 ---
 
@@ -388,11 +388,11 @@ e-learning/
 
 ### Backend API
 
-- **Dual-role JWT authentication** — separate \`protect\` (Admin) and \`studentProtect\` (Student) middleware.
-- **Admin Admission & Assign Gate** — Admins create students with credentials and assign courses via \`StudentAssignedCourse\`. The access guard ensures students can only fetch details for courses they are explicitly assigned.
-- **In-App Progress Logging** — Keeps track of completed modules (videos, PDFs) per student using \`StudentProgress\`. Includes uniqueness index on \`(student_id, module_id)\` to prevent duplicates.
-- **Access Guard** — \`getCourse\` and \`getMyCourses\` enforce that students can only view courses they've been explicitly assigned.
-- **Enrollment Auto-Provisioning** — On first course access, a corresponding \`Enrollment\` record is automatically created via \`findOrCreate\`, enabling the admin to manage block/payment status immediately.
+- **Dual-role JWT authentication** — separate `protect` (Admin) and `studentProtect` (Student) middleware.
+- **Admin Admission & Assign Gate** — Admins create students with credentials and assign courses via `StudentAssignedCourse`. The access guard ensures students can only fetch details for courses they are explicitly assigned.
+- **In-App Progress Logging** — Keeps track of completed modules (videos, PDFs) per student using `StudentProgress`. Includes uniqueness index on `(student_id, module_id)` to prevent duplicates.
+- **Access Guard** — `getCourse` and `getMyCourses` enforce that students can only view courses they've been explicitly assigned.
+- **Enrollment Auto-Provisioning** — On first course access, a corresponding `Enrollment` record is automatically created via `findOrCreate`, enabling the admin to manage block/payment status immediately.
 - **Financial State Machine** — Automated dues calculations, partial payment increments, and balance tracking per enrollment.
 - **Course-Level Access Suspension** — Admins can block/unblock a student's access to a specific course. The block status is injected into every course detail and my-courses API response.
 - **Notification Dispatch Engine** — Handles logs, scheduled schedules, and targeted recipient groupings (All, Enrolled, Dues Pending).
@@ -403,7 +403,7 @@ e-learning/
 
 The platform uses an **admin-controlled admission model**. Students do not self-register for courses — they are admitted and assigned by the admin.
 
-\`\`\`
+```
 Admin Action
      │
      ▼
@@ -423,11 +423,11 @@ Admin Action
 [4] Student Accesses Assigned Course
      Backend auto-creates an Enrollment record on first access
      Admin can now manage block status and payment for this enrollment
-\`\`\`
+```
 
 ### Student Login Credentials (Admin-Created Students)
-- **Username**: Student's Full Name (e.g., \`Vinothkumar S\`) - case-insensitive
-- **Password**: Student's Mobile Number (e.g., \`9876543210\`)
+- **Username**: Student's Full Name (e.g., `Vinothkumar S`) - case-insensitive
+- **Password**: Student's Mobile Number (e.g., `9876543210`)
 
 ---
 
@@ -435,7 +435,7 @@ Admin Action
 
 The platform implements an admin-controlled **Installment & Financial State Machine**:
 
-\`\`\`
+```
            Student Request (Cart Checkout)
                  │
                  ▼
@@ -458,16 +458,16 @@ The platform implements an admin-controlled **Installment & Financial State Mach
                  │
                  ▼
           Are Dues Clear?
-           /           \\
+           /           \
          YES            NO
-         /                \\
+         /                \
         ▼                  ▼
   [7] Enrolled ✅    [7] Enrolled (Partially Paid) ⏳
 (Full Access)       (Conditional access, balance remaining)
-\`\`\`
+```
 
 ### Installment Features
-1. **Dynamic Balance Tracking**: Every enrollment maintains \`final_amount\` and \`paid_amount\`. The system dynamically computes \`remaining_amount = final_amount - paid_amount\`.
+1. **Dynamic Balance Tracking**: Every enrollment maintains `final_amount` and `paid_amount`. The system dynamically computes `remaining_amount = final_amount - paid_amount`.
 2. **Custom Installment Requests**: Admins can issue custom payment requests for remaining dues via the dashboard, spawning a new pending payment record for the student to upload proof against.
 3. **Adaptive Mobile UX**: Once enrolled, all public tuition fee tags are hidden. If an outstanding balance remains, a dedicated banner provides an inline receipt upload shortcut.
 
@@ -479,7 +479,7 @@ Admins have fine-grained, per-enrollment course access control:
 
 - **Suspension Trigger**: Click the block toggle on any enrollment from the Enrollment Requests page, providing an optional custom reason.
 - **Instant Lockout**: The student's mobile app reflects the block immediately:
-  - **My Courses Screen**: Shows a red "Blocked" badge and a red lock button. Tapping either shows an \`AlertDialog\` with the suspension reason.
+  - **My Courses Screen**: Shows a red "Blocked" badge and a red lock button. Tapping either shows an `AlertDialog` with the suspension reason.
   - **Course Detail Screen**: Displays a red "COURSE ACCESS SUSPENDED" banner with the reason and any outstanding payment details.
   - **Video Player Screen**: Immediately replaces the player with a full "ACCESS SUSPENDED" screen, completely preventing lesson access.
 - **Access Restoration**: Admin unblocks the enrollment to instantly restore full access. The mobile app reflects this in real-time on next data refresh.
@@ -490,12 +490,12 @@ Admins have fine-grained, per-enrollment course access control:
 
 Student learning progress is tracked automatically and visualized in real-time for both students and administrators.
 
-\`\`\`
+```
           Student Activity (Mobile App)
-            /                        \\
+            /                        \
            ▼                          ▼
    Finishes Video Lesson        Loads Material PDF
-           \\                          /
+           \                          /
             ▼                        ▼
       Mark Completed (POST /api/student/progress/mark)
                      │
@@ -504,11 +504,11 @@ Student learning progress is tracked automatically and visualized in real-time f
                      │
                      ▼
      Calculates Course & Overall Completion %
-            /                        \\
+            /                        \
            ▼                          ▼
    My Performance Screen      Admin Performance Dashboard
   (Student Progress Charts)    (Leaderboard & Checklist Audits)
-\`\`\`
+```
 
 1. **Auto-Logging Progress**: 
    - **Videos**: As soon as a student completes watching a video module inside the YouTube player, the app triggers a progress update.
@@ -522,10 +522,10 @@ Student learning progress is tracked automatically and visualized in real-time f
 
 The mobile application features a built-in PDF document reader, eliminating the need to redirect students to external web browsers.
 
-- **Remote Caching**: Uses \`flutter_cached_pdfview\` to download and cache remote PDF documents, ensuring fast page load times on subsequent viewings.
+- **Remote Caching**: Uses `flutter_cached_pdfview` to download and cache remote PDF documents, ensuring fast page load times on subsequent viewings.
 - **Download Progress**: Shows a clean visual progress indicator displaying download percentages.
 - **Error Handling**: Implements a dedicated error layout with an inline "Try Again" trigger to handle network drops gracefully.
-- **Page Controls**: Implements floating navigation overlays for page flipping (\`Prev / Next\`) and real-time page count indicators (\`Page X of Y\`).
+- **Page Controls**: Implements floating navigation overlays for page flipping (`Prev / Next`) and real-time page count indicators (`Page X of Y`).
 - **Autologging**: Upon successful document render, the viewer automatically dispatches a completion callback to sync the student's progress.
 
 ---
@@ -549,7 +549,7 @@ EduAdmin features an advanced **Notifications Center**:
 - **MySQL** 8.0+
 - **Flutter** 3.x SDK
 - **Android Studio** / **Xcode** (for mobile development)
-- \`adb\` (Android Debug Bridge) for USB device testing
+- `adb` (Android Debug Bridge) for USB device testing
 
 ---
 
@@ -557,72 +557,72 @@ EduAdmin features an advanced **Notifications Center**:
 
 Create the MySQL database:
 
-\`\`\`sql
+```sql
 CREATE DATABASE elearning_db1 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-\`\`\`
+```
 
-Sequelize will auto-sync all tables on first server start (\`sync({ alter: true })\`).
+Sequelize will auto-sync all tables on first server start (`sync({ alter: true })`).
 
 #### Seeding Database
 
 **Option A: Basic Setup (Super Admin Only)**
-\`\`\`bash
+```bash
 cd server
 npm run seed
-\`\`\`
-- **Super Admin Credentials**: \`admin@eduadmin.com\` / \`admin123\`
+```
+- **Super Admin Credentials**: `admin@eduadmin.com` / `admin123`
 
 **Option B: Full Sandbox Curriculum Seed (Recommended)**
 
 Drops all tables, reconstructs the schema, and seeds a complete workspace with 3 courses (DSA, React & Next.js, Node.js), nested sections/subsections, YouTube-linked lessons, a default student profile, and super admin access:
 
-\`\`\`bash
+```bash
 cd server
 node seeders/dbSeedMaster.js
-\`\`\`
+```
 
-- **Super Admin**: \`admin@eduadmin.com\` / \`admin123\`
-- **Default Student** (email login): \`svinothkumar0301@gmail.com\` / \`123456\`
+- **Super Admin**: `admin@eduadmin.com` / `admin123`
+- **Default Student** (email login): `svinothkumar0301@gmail.com` / `123456`
 - **Admin-Admitted Students** (name login): Full Name + Mobile Number (set at admission time)
 
 ---
 
 ### 2. Backend Server
 
-\`\`\`bash
+```bash
 cd server
 cp .env.example .env
 # Fill in your DB credentials and JWT secret in .env
 npm install
 npm run dev
-\`\`\`
+```
 
-Server starts at **\`http://localhost:5000\`**
+Server starts at **`http://localhost:5000`**
 
 ---
 
 ### 3. Admin Frontend
 
-\`\`\`bash
+```bash
 cd frontend
 npm install
 npm run dev
-\`\`\`
+```
 
-Dashboard opens at **\`http://localhost:5173\`**
+Dashboard opens at **`http://localhost:5173`**
 
 ---
 
 ### 4. Student Mobile App
 
-\`\`\`bash
+```bash
 cd student_app
 flutter pub get
-\`\`\`
+```
 
 **For a physical Android device (recommended):**
 
-\`\`\`bash
+```bash
 # Step 1: Connect device via USB (enable USB Debugging)
 adb devices
 
@@ -631,20 +631,20 @@ adb reverse tcp:5000 tcp:5000
 
 # Step 3: Run the app
 flutter run
-\`\`\`
+```
 
-**For an Android Emulator**, the app is already pre-configured to use \`10.0.2.2\`. If needed, verify \`student_app/lib/core/constants/app_constants.dart\`:
-\`\`\`dart
+**For an Android Emulator**, the app is already pre-configured to use `10.0.2.2`. If needed, verify `student_app/lib/core/constants/app_constants.dart`:
+```dart
 static const String baseUrl = 'http://10.0.2.2:5000/api';
-\`\`\`
+```
 
 ---
 
 ## Environment Variables
 
-Create \`server/.env\` based on \`.env.example\`:
+Create `server/.env` based on `.env.example`:
 
-\`\`\`env
+```env
 PORT=5000
 NODE_ENV=development
 
@@ -666,20 +666,20 @@ SMTP_USER=
 SMTP_PASS=
 FROM_EMAIL=noreply@eduadmin.com
 FROM_NAME=EduAdmin
-\`\`\`
+```
 
 ---
 
 ## API Reference
 
-All routes are prefixed with \`/api\`.
+All routes are prefixed with `/api`.
 
 ### 🔐 Auth (Admin)
 
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`POST\` | \`/auth/login\` | Public | Admin login → returns JWT |
-| \`GET\` | \`/auth/me\` | Admin | Get current admin profile |
+| `POST` | `/auth/login` | Public | Admin login → returns JWT |
+| `GET` | `/auth/me` | Admin | Get current admin profile |
 
 ---
 
@@ -688,38 +688,38 @@ All routes are prefixed with \`/api\`.
 #### Authentication
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`POST\` | \`/student/register\` | Public | Self-service student registration |
-| \`POST\` | \`/student/login\` | Public | Student login (name+password or email+password) → returns JWT |
-| \`GET\` | \`/student/me\` | Student | Get current student profile |
+| `POST` | `/student/register` | Public | Self-service student registration |
+| `POST` | `/student/login` | Public | Student login (name+password or email+password) → returns JWT |
+| `GET` | `/student/me` | Student | Get current student profile |
 
 #### Course Discovery & Content
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/student/courses\` | Public | List published courses (excludes already-assigned) |
-| \`GET\` | \`/student/courses/:id\` | Student | Get single course with sections, modules, and block status |
-| \`GET\` | \`/student/my-courses\` | Student | List all admin-assigned courses with block & payment status |
-| \`GET\` | \`/student/courses/:id/materials\` | Student | Download supplementary course documents |
+| `GET` | `/student/courses` | Public | List published courses (excludes already-assigned) |
+| `GET` | `/student/courses/:id` | Student | Get single course with sections, modules, and block status |
+| `GET` | `/student/my-courses` | Student | List all admin-assigned courses with block & payment status |
+| `GET` | `/student/courses/:id/materials` | Student | Download supplementary course documents |
 
 #### Shopping Cart Flow
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/student/cart\` | Student | View current shopping cart |
-| \`POST\` | \`/student/cart/add\` | Student | Add course to cart |
-| \`DELETE\` | \`/student/cart/:id\` | Student | Remove course from cart |
-| \`POST\` | \`/student/cart/checkout\` | Student | Checkout and submit enrollment request |
+| `GET` | `/student/cart` | Student | View current shopping cart |
+| `POST` | `/student/cart/add` | Student | Add course to cart |
+| `DELETE` | `/student/cart/:id` | Student | Remove course from cart |
+| `POST` | `/student/cart/checkout` | Student | Checkout and submit enrollment request |
 
 #### Enrollments & Payments
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`POST\` | \`/student/enroll\` | Student | Request direct enrollment |
-| \`GET\` | \`/student/my-enrollments\` | Student | Student's enrollment list with status |
+| `POST` | `/student/enroll` | Student | Request direct enrollment |
+| `GET` | `/student/my-enrollments` | Student | Student's enrollment list with status |
 
 #### Progress & Syllabus Metrics
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`POST\` | \`/student/progress/mark\` | Student | Mark a course module (video/PDF) as completed |
-| \`GET\` | \`/student/progress/:courseId\` | Student | Get completed module IDs for a course |
-| \`GET\` | \`/student/performance\` | Student | Get overall progress statistics and syllabus checklist |
+| `POST` | `/student/progress/mark` | Student | Mark a course module (video/PDF) as completed |
+| `GET` | `/student/progress/:courseId` | Student | Get completed module IDs for a course |
+| `GET` | `/student/performance` | Student | Get overall progress statistics and syllabus checklist |
 
 ---
 
@@ -727,20 +727,20 @@ All routes are prefixed with \`/api\`.
 
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/courses\` | Admin | List all courses (includes drafts) |
-| \`POST\` | \`/courses\` | Admin | Create a new course |
-| \`GET\` | \`/courses/:id\` | Admin | Get course details |
-| \`PUT\` | \`/courses/:id\` | Admin | Update course metadata |
-| \`DELETE\` | \`/courses/:id\` | Admin | Delete course |
-| \`POST\` | \`/courses/upload\` | Admin | Upload course thumbnail / files |
-| \`GET\` | \`/courses/:courseId/sections\` | Admin | Get all sections in course |
-| \`POST\` | \`/courses/:courseId/sections\` | Admin | Create a course section |
-| \`PUT\` | \`/courses/:courseId/sections/:id\` | Admin | Update section details |
-| \`DELETE\` | \`/courses/:courseId/sections/:id\` | Admin | Delete section |
-| \`GET\` | \`/courses/:courseId/modules\` | Admin | Get modules in course |
-| \`POST\` | \`/courses/:courseId/modules\` | Admin | Create a module (lesson/video/document) |
-| \`PUT\` | \`/courses/:courseId/modules/:id\` | Admin | Update module details |
-| \`DELETE\` | \`/courses/:courseId/modules/:id\` | Admin | Delete module |
+| `GET` | `/courses` | Admin | List all courses (includes drafts) |
+| `POST` | `/courses` | Admin | Create a new course |
+| `GET` | `/courses/:id` | Admin | Get course details |
+| `PUT` | `/courses/:id` | Admin | Update course metadata |
+| `DELETE` | `/courses/:id` | Admin | Delete course |
+| `POST` | `/courses/upload` | Admin | Upload course thumbnail / files |
+| `GET` | `/courses/:courseId/sections` | Admin | Get all sections in course |
+| `POST` | `/courses/:courseId/sections` | Admin | Create a course section |
+| `PUT` | `/courses/:courseId/sections/:id` | Admin | Update section details |
+| `DELETE` | `/courses/:courseId/sections/:id` | Admin | Delete section |
+| `GET` | `/courses/:courseId/modules` | Admin | Get modules in course |
+| `POST` | `/courses/:courseId/modules` | Admin | Create a module (lesson/video/document) |
+| `PUT` | `/courses/:courseId/modules/:id` | Admin | Update module details |
+| `DELETE` | `/courses/:courseId/modules/:id` | Admin | Delete module |
 
 ---
 
@@ -748,16 +748,16 @@ All routes are prefixed with \`/api\`.
 
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/students\` | Admin | List all student accounts |
-| \`POST\` | \`/students/create\` | Admin | **Admit a new student** with auto-generated credentials |
-| \`GET\` | \`/students/:id\` | Admin | View student profile & details |
-| \`PUT\` | \`/students/:id\` | Admin | Edit student profile |
-| \`DELETE\` | \`/students/:id\` | Super Admin | Remove student account |
-| \`PATCH\` | \`/students/:id/toggle-status\` | Admin | Suspend or reactivate student account |
-| \`POST\` | \`/students/:id/assign-courses\` | Admin | **Assign one or more courses** to a student |
-| \`GET\` | \`/students/:id/assigned-courses\` | Admin | View all course assignments for a student |
-| \`DELETE\` | \`/students/:id/assigned-courses/:courseId\` | Admin | Remove a course assignment |
-| \`GET\` | \`/students/:id/performance\` | Admin | Fetch course progress breakdown for a specific student |
+| `GET` | `/students` | Admin | List all student accounts |
+| `POST` | `/students/create` | Admin | **Admit a new student** with auto-generated credentials |
+| `GET` | `/students/:id` | Admin | View student profile & details |
+| `PUT` | `/students/:id` | Admin | Edit student profile |
+| `DELETE` | `/students/:id` | Super Admin | Remove student account |
+| `PATCH` | `/students/:id/toggle-status` | Admin | Suspend or reactivate student account |
+| `POST` | `/students/:id/assign-courses` | Admin | **Assign one or more courses** to a student |
+| `GET` | `/students/:id/assigned-courses` | Admin | View all course assignments for a student |
+| `DELETE` | `/students/:id/assigned-courses/:courseId` | Admin | Remove a course assignment |
+| `GET` | `/students/:id/performance` | Admin | Fetch course progress breakdown for a specific student |
 
 ---
 
@@ -766,29 +766,29 @@ All routes are prefixed with \`/api\`.
 #### Enrollments
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/enrollments\` | Admin | List all enrollment requests (paginated) |
-| \`GET\` | \`/enrollments/pending\` | Admin | Fetch pending enrollment requests only |
-| \`GET\` | \`/enrollments/:id\` | Admin | View details of an enrollment |
-| \`PATCH\` | \`/enrollments/:id/status\` | Admin | Update enrollment status |
-| \`PATCH\` | \`/enrollments/:id/set-amount\` | Admin | Assign tuition fee to enrollment |
-| \`POST\` | \`/enrollments/:id/approve\` | Admin | Approve request (creates pending payment) |
-| \`POST\` | \`/enrollments/:id/reject\` | Admin | Reject request |
-| \`POST\` | \`/enrollments/:id/record-payment\` | Admin | Record manual cash/check payment |
-| \`POST\` | \`/enrollments/:id/request-payment\` | Admin | Issue custom installment payment request |
-| \`PATCH\` | \`/enrollments/:id/block\` | Admin | **Toggle course access block** (with optional reason) |
+| `GET` | `/enrollments` | Admin | List all enrollment requests (paginated) |
+| `GET` | `/enrollments/pending` | Admin | Fetch pending enrollment requests only |
+| `GET` | `/enrollments/:id` | Admin | View details of an enrollment |
+| `PATCH` | `/enrollments/:id/status` | Admin | Update enrollment status |
+| `PATCH` | `/enrollments/:id/set-amount` | Admin | Assign tuition fee to enrollment |
+| `POST` | `/enrollments/:id/approve` | Admin | Approve request (creates pending payment) |
+| `POST` | `/enrollments/:id/reject` | Admin | Reject request |
+| `POST` | `/enrollments/:id/record-payment` | Admin | Record manual cash/check payment |
+| `POST` | `/enrollments/:id/request-payment` | Admin | Issue custom installment payment request |
+| `PATCH` | `/enrollments/:id/block` | Admin | **Toggle course access block** (with optional reason) |
 
 #### Payments
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/payments\` | Admin | View recent payments dashboard |
-| \`GET\` | \`/payments/ledger\` | Admin | View payment accounting ledger |
-| \`GET\` | \`/payments/export\` | Admin | Export payments ledger as CSV |
-| \`POST\` | \`/payments/manual\` | Admin | Record manual administrative payment |
-| \`GET\` | \`/payments/:id\` | Admin | View single payment detail |
-| \`PATCH\` | \`/payments/:id/verify\` | Admin | Verify/Approve a pending payment proof |
-| \`PATCH\` | \`/payments/:id/manual-update\` | Admin | Edit a payment transaction |
-| \`GET\` | \`/payments/:id/audit\` | Admin | View audit logs for a payment |
-| \`POST\` | \`/payments/:id/proof\` | Student | Upload payment screenshot proof |
+| `GET` | `/payments` | Admin | View recent payments dashboard |
+| `GET` | `/payments/ledger` | Admin | View payment accounting ledger |
+| `GET` | `/payments/export` | Admin | Export payments ledger as CSV |
+| `POST` | `/payments/manual` | Admin | Record manual administrative payment |
+| `GET` | `/payments/:id` | Admin | View single payment detail |
+| `PATCH` | `/payments/:id/verify` | Admin | Verify/Approve a pending payment proof |
+| `PATCH` | `/payments/:id/manual-update` | Admin | Edit a payment transaction |
+| `GET` | `/payments/:id/audit` | Admin | View audit logs for a payment |
+| `POST` | `/payments/:id/proof` | Student | Upload payment screenshot proof |
 
 ---
 
@@ -796,8 +796,8 @@ All routes are prefixed with \`/api\`.
 
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/notifications\` | Admin | Retrieve logs of sent/scheduled broadcasts |
-| \`POST\` | \`/notifications\` | Admin | Dispatch a new notification broadcast |
+| `GET` | `/notifications` | Admin | Retrieve logs of sent/scheduled broadcasts |
+| `POST` | `/notifications` | Admin | Dispatch a new notification broadcast |
 
 ---
 
@@ -805,7 +805,7 @@ All routes are prefixed with \`/api\`.
 
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/performance\` | Admin | Fetch students leaderboard, completion percentages, and checklists |
+| `GET` | `/performance` | Admin | Fetch students leaderboard, completion percentages, and checklists |
 
 ---
 
@@ -813,9 +813,9 @@ All routes are prefixed with \`/api\`.
 
 | Method | Route | Access | Description |
 |---|---|---|---|
-| \`GET\` | \`/dashboard/stats\` | Admin | Global KPI figures & revenue stats |
-| \`GET\` | \`/dashboard/recent-enrollments\` | Admin | Recent enrollment requests |
-| \`GET\` | \`/dashboard/upcoming-classes\` | Admin | Upcoming scheduled live classes |
+| `GET` | `/dashboard/stats` | Admin | Global KPI figures & revenue stats |
+| `GET` | `/dashboard/recent-enrollments` | Admin | Recent enrollment requests |
+| `GET` | `/dashboard/upcoming-classes` | Admin | Upcoming scheduled live classes |
 
 ---
 
@@ -823,22 +823,22 @@ All routes are prefixed with \`/api\`.
 
 | Model | Key Fields | Description |
 |---|---|---|
-| \`User\` | id, name, email, password, role, avatar, is_active | Admin portal users with role-based access control (\`super_admin\`, \`admin\`, \`support\`). |
-| \`Student\` | id (UUID), name, email, mobile_number, password, phone, avatar, is_active | Student profiles. Admin-created students use Name + Mobile Number as credentials. |
-| \`StudentAssignedCourse\` | id, student_id, course_id, assigned_by, assigned_at | **Authorization gateway**: a student can only access courses that exist in this table. Created by admins; separate from the payment enrollment flow. |
-| \`Course\` | id, title, description, price, thumbnail, category, level, status, instructor_name | Course catalog with status (\`draft\`, \`published\`, \`archived\`). |
-| \`CourseSection\` | id, course_id, title, description, order, parent_id | Multi-tier sections supporting nested sub-sections. |
-| \`CourseModule\` | id, title, order, type, duration, section_id, youtube_url, file_url, is_free | Individual lessons (video/document). Free lessons are accessible without full enrollment. |
-| \`Enrollment\` | id, student_id, course_id, status, request_status, fee_status, payment_status, final_amount, paid_amount, **is_blocked**, **block_reason**, enrolled_at | Core enrollment record. Source of truth for payment state and course access suspension. Auto-created on first course access for admin-assigned students. |
-| \`Payment\` | id, enrollment_id, student_id, amount, method, status, proof_url, transaction_ref, verified_by, verified_at, rejected_reason | Payment transaction records for fees and installments with proof file path. |
-| \`PaymentAuditLog\` | id, payment_id, action, old_status, new_status, performed_by, notes | Immutable history log tracking all payment status transitions. |
-| \`Cart\` | id, student_id | Shopping cart parent record per student. |
-| \`CartItem\` | id, cart_id, course_id, price_at_add | Cart items linked to courses. |
-| \`LiveClass\` | id, course_id, instructor_id, title, batch, scheduled_at, duration_mins, meeting_link, status | Upcoming virtual classrooms mapped to courses. |
-| \`Attendance\` | id, live_class_id, student_id, is_present | Student presence log for live classes. |
-| \`Material\` | id, course_id, title, file_url, file_type, file_size, download_count, is_free | Downloadable supplementary documents. |
-| \`Notification\` | id, type, title, message, recipient_group, status, scheduled_at, sent_by | Global notification broadcasts sent/scheduled by admins. |
-| \`StudentProgress\` | id, student_id, course_id, module_id, watch_duration, completed_at | Tracks completed lessons and watched duration per student and module. Unique index on (student_id, module_id) prevents duplicates. |
+| `User` | id, name, email, password, role, avatar, is_active | Admin portal users with role-based access control (`super_admin`, `admin`, `support`). |
+| `Student` | id (UUID), name, email, mobile_number, password, phone, avatar, is_active | Student profiles. Admin-created students use Name + Mobile Number as credentials. |
+| `StudentAssignedCourse` | id, student_id, course_id, assigned_by, assigned_at | **Authorization gateway**: a student can only access courses that exist in this table. Created by admins; separate from the payment enrollment flow. |
+| `Course` | id, title, description, price, thumbnail, category, level, status, instructor_name | Course catalog with status (`draft`, `published`, `archived`). |
+| `CourseSection` | id, course_id, title, description, order, parent_id | Multi-tier sections supporting nested sub-sections. |
+| `CourseModule` | id, title, order, type, duration, section_id, youtube_url, file_url, is_free | Individual lessons (video/document). Free lessons are accessible without full enrollment. |
+| `Enrollment` | id, student_id, course_id, status, request_status, fee_status, payment_status, final_amount, paid_amount, **is_blocked**, **block_reason**, enrolled_at | Core enrollment record. Source of truth for payment state and course access suspension. Auto-created on first course access for admin-assigned students. |
+| `Payment` | id, enrollment_id, student_id, amount, method, status, proof_url, transaction_ref, verified_by, verified_at, rejected_reason | Payment transaction records for fees and installments with proof file path. |
+| `PaymentAuditLog` | id, payment_id, action, old_status, new_status, performed_by, notes | Immutable history log tracking all payment status transitions. |
+| `Cart` | id, student_id | Shopping cart parent record per student. |
+| `CartItem` | id, cart_id, course_id, price_at_add | Cart items linked to courses. |
+| `LiveClass` | id, course_id, instructor_id, title, batch, scheduled_at, duration_mins, meeting_link, status | Upcoming virtual classrooms mapped to courses. |
+| `Attendance` | id, live_class_id, student_id, is_present | Student presence log for live classes. |
+| `Material` | id, course_id, title, file_url, file_type, file_size, download_count, is_free | Downloadable supplementary documents. |
+| `Notification` | id, type, title, message, recipient_group, status, scheduled_at, sent_by | Global notification broadcasts sent/scheduled by admins. |
+| `StudentProgress` | id, student_id, course_id, module_id, watch_duration, completed_at | Tracks completed lessons and watched duration per student and module. Unique index on (student_id, module_id) prevents duplicates. |
 
 ---
 
@@ -846,7 +846,7 @@ All routes are prefixed with \`/api\`.
 
 ### Physical Android Device (USB)
 
-\`\`\`bash
+```bash
 # Step 1: Connect device via USB (enable USB Debugging in developer options)
 adb devices
 
@@ -856,20 +856,20 @@ adb reverse tcp:5000 tcp:5000
 # Step 3: Run the Flutter app
 cd student_app
 flutter run
-\`\`\`
+```
 
-> ⚠️ If you disconnect and reconnect the USB cable, re-run \`adb reverse tcp:5000 tcp:5000\`.
+> ⚠️ If you disconnect and reconnect the USB cable, re-run `adb reverse tcp:5000 tcp:5000`.
 
-The app uses \`http://127.0.0.1:5000/api\` by default for physical devices with \`adb reverse\`.
+The app uses `http://127.0.0.1:5000/api` by default for physical devices with `adb reverse`.
 
 ### Android Emulator
 
-Set \`baseUrl\` in \`student_app/lib/core/constants/app_constants.dart\` to:
-\`\`\`dart
+Set `baseUrl` in `student_app/lib/core/constants/app_constants.dart` to:
+```dart
 static const String baseUrl = 'http://10.0.2.2:5000/api';
-\`\`\`
+```
 
-\`10.0.2.2\` is the emulator's alias for the host machine's \`localhost\`.
+`10.0.2.2` is the emulator's alias for the host machine's `localhost`.
 
 ---
 
@@ -878,10 +878,10 @@ static const String baseUrl = 'http://10.0.2.2:5000/api';
 To present this documentation to clients as a high-fidelity, interactive webpage instead of plain markdown:
 
 1. Compile the self-contained HTML page:
-   \`\`\`bash
+   ```bash
    node generate_doc.js
-   \`\`\`
-2. Open the newly generated **\`view_readme.html\`** in any web browser.
+   ```
+2. Open the newly generated **`view_readme.html`** in any web browser.
 3. Features of the web documentation:
    * **Fully responsive layout** with a navigation sidebar (Table of Contents) and sub-heading page outlines.
    * **Interactive search** to filter sections and code guides.
@@ -900,12 +900,33 @@ This project is proprietary software developed for **MobileKI**. All rights rese
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-env.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-dart.min.js"></script>
 
   <script>
+    // Global Error Logger for UI feedback
+    window.addEventListener('error', function(e) {
+      // Ignore resource loading errors (which do not have a message)
+      if (!e.message && e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK' || e.target.tagName === 'IMG')) {
+        console.warn("Resource failed to load:", e.target.src || e.target.href);
+        return;
+      }
+
+      console.error("Global Error Caught: ", e);
+      const container = document.getElementById('readme-content');
+      if (container) {
+        container.innerHTML = `<div class="p-6 bg-red-500/10 border border-red-500 rounded-2xl text-red-600 dark:text-red-400">
+          <h3 class="font-bold text-lg mb-2 flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            JavaScript Runtime Error
+          </h3>
+          <p class="font-mono text-sm bg-slate-900 p-3 rounded-lg border border-slate-800 text-slate-300">${e.message}</p>
+          <p class="text-xs text-slate-500 mt-2">Line ${e.lineno}, Col ${e.colno} in ${e.filename}</p>
+        </div>`;
+      }
+    }, true); // Use capture phase to intercept resource errors
+
     // Theme Management
     const themeToggle = document.getElementById('theme-toggle');
     const htmlEl = document.documentElement;
@@ -937,6 +958,7 @@ This project is proprietary software developed for **MobileKI**. All rights rese
     renderer.heading = function(text, level) {
       const slug = text.toLowerCase()
         .replace(/[^\w\s\-]/g, '')
+        .trim()
         .replace(/\s+/g, '-');
       
       // We render anchor links
@@ -961,7 +983,7 @@ This project is proprietary software developed for **MobileKI**. All rights rese
       } else if (cleanQuote.includes('[!IMPORTANT]')) {
         alertClass = 'alert-important alert-box text-purple-800 dark:text-purple-200 border-purple-500 dark:border-purple-400';
         title = 'IMPORTANT';
-        icon = '<svg class="w-4 h-4 inline-block mr-1.5 mr-1.5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.952 11.952 0 01-9.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>';
+        icon = '<svg class="w-4 h-4 inline-block mr-1.5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.952 11.952 0 01-9.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>';
       } else if (cleanQuote.includes('[!WARNING]')) {
         alertClass = 'alert-warning alert-box text-amber-800 dark:text-amber-200 border-amber-500 dark:border-amber-400';
         title = 'WARNING';
@@ -976,7 +998,7 @@ This project is proprietary software developed for **MobileKI**. All rights rese
       
       const formattedQuote = cleanQuote
         .replace(/\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/, '')
-        .replace(/<p>/, `<p class="text-sm font-semibold flex items-center gap-1 mb-1">${icon}${title}</p><p class="text-sm opacity-90 leading-relaxed">`);
+        .replace(/<p>/, `<p class="text-sm font-semibold flex items-center gap-1 mb-1">	ext-xs ${icon}${title}</p><p class="text-sm opacity-90 leading-relaxed">`);
         
       return `<div class="${alertClass}">${formattedQuote}</div>`;
     };
@@ -998,7 +1020,12 @@ This project is proprietary software developed for **MobileKI**. All rights rese
       </div>`;
     };
 
-    marked.setOptions({ renderer });
+    // Modern Marked v4+ initialization support
+    if (typeof marked.use === 'function') {
+      marked.use({ renderer });
+    } else {
+      marked.setOptions({ renderer });
+    }
 
     // Render markdown content
     document.getElementById('readme-content').innerHTML = marked.parse(md);
@@ -1027,7 +1054,7 @@ This project is proprietary software developed for **MobileKI**. All rights rese
       });
     });
 
-    // Populate Sidebar Navigation & "On This Page" List
+    // Populate Sidebar Navigation & "On This Page" List (Safe Extractor)
     const headings = Array.from(document.querySelectorAll('#readme-content h2, #readme-content h3'));
     const sidebarNav = document.getElementById('sidebar-nav');
     const onThisPage = document.getElementById('on-this-page');
@@ -1038,9 +1065,12 @@ This project is proprietary software developed for **MobileKI**. All rights rese
     let currentSectionDiv = null;
 
     headings.forEach(heading => {
-      const text = heading.childNodes[0].textContent; // ignore # anchor link
+      // Safe text extraction ignoring anchor links
+      const text = heading.textContent.replace(/#$/, '').trim();
       const id = heading.id;
       const level = heading.tagName.toLowerCase();
+
+      if (!text) return; // Skip empty headings
 
       // Right Sidebar - On This Page Link
       if (level === 'h2') {
