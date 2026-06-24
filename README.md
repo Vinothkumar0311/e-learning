@@ -624,6 +624,24 @@ static const String baseUrl = 'http://10.0.2.2:5000/api';
 
 ---
 
+## Showcase Documentation (Webpage)
+
+To present this documentation to clients as a high-fidelity, interactive webpage instead of plain markdown:
+
+1. Compile the self-contained HTML page:
+   ```bash
+   node generate_doc.js
+   ```
+2. Open the newly generated **`view_readme.html`** in any web browser.
+3. Features of the web documentation:
+   * **Fully responsive layout** with a navigation sidebar (Table of Contents) and sub-heading page outlines.
+   * **Interactive search** to filter sections and code guides.
+   * **Dracula-themed code highlight syntax** with instant "Copy Code" actions.
+   * **Premium dark/light mode toggle**.
+   * **Stand-alone execution** (uses embedded JSON-structured markdown content, so it opens without requiring a web server or triggering CORS errors).
+
+---
+
 ## License
 
 This project is proprietary software developed for **MobileKI**. All rights reserved.
