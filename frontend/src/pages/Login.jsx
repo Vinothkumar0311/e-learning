@@ -41,10 +41,10 @@ const Login = () => {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary shadow-lg shadow-primary/30 mb-4">
-            <BookOpen size={32} className="text-white" />
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white shadow-xl shadow-primary/20 border border-white/25 overflow-hidden mb-4 p-1">
+            <img src="/logo.png" alt="Royal NEET Academy Logo" className="w-full h-full object-cover rounded-full" />
           </div>
-          <h1 className="text-3xl font-black tracking-tight">EduAdmin</h1>
+          <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Royal NEET Academy</h1>
           <p className="text-muted-foreground mt-1 text-sm">Administration Portal</p>
         </div>
 

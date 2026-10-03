@@ -82,11 +82,20 @@ class CartProvider extends ChangeNotifier {
   }
 
   Future<void> fetchMyCourses({bool showLoading = false}) async {
+    if (showLoading) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
     try {
       _myCourses = await _cartService.getMyCourses();
+      _error = null;
+    } catch (e) {
+      _error = e.toString();
+      debugPrint('fetchMyCourses error: $e');
+    } finally {
+      if (showLoading) _isLoading = false;
       notifyListeners();
-    } catch (_) {
-      // Silent — My Courses failing shouldn't break the app
     }
   }
 

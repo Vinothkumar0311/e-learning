@@ -3,17 +3,23 @@ import 'package:dio/dio.dart';
 import '../models/user_model.dart';
 import '../core/network/dio_client.dart';
 import '../core/utils/error_handler.dart';
+import 'security_service.dart';
 
 class AuthService {
   final _dio = DioClient().dio;
 
   Future<Map<String, dynamic>> login(String name, String password) async {
     try {
-      print("DEBUG: login request to ${_dio.options.baseUrl}/student/login");
+      final deviceId = await SecurityService().getDeviceId();
+      final deviceName = await SecurityService().getDeviceName();
+
       final response = await _dio.post('/student/login', data: {
         'name': name,
         'password': password,
+        'device_id': deviceId,
+        'device_name': deviceName,
       });
+
       final data = response.data;
       if (data is String) {
         return jsonDecode(data) as Map<String, dynamic>;
@@ -26,13 +32,18 @@ class AuthService {
 
   Future<Map<String, dynamic>> register(String name, String email, String password, String phone) async {
     try {
-      print("DEBUG: register request to ${_dio.options.baseUrl}/student/register");
+      final deviceId = await SecurityService().getDeviceId();
+      final deviceName = await SecurityService().getDeviceName();
+
       final response = await _dio.post('/student/register', data: {
         'name': name,
         'email': email,
         'password': password,
         'phone': phone,
+        'device_id': deviceId,
+        'device_name': deviceName,
       });
+
       final data = response.data;
       if (data is String) {
         return jsonDecode(data) as Map<String, dynamic>;
@@ -54,5 +65,11 @@ class AuthService {
     } on DioException catch (e) {
       throw ErrorHandler.getErrorMessage(e, 'Failed to fetch user');
     }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _dio.post('/student/logout');
+    } catch (_) {}
   }
 }

@@ -58,6 +58,41 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
             );
           }
 
+          if (cartProvider.error != null && courses.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 52),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Failed to load courses',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      cartProvider.error!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: _refresh,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConstants.primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
           if (courses.isEmpty) {
             return _buildEmptyState(context);
           }
@@ -181,19 +216,24 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   }
 
   Widget _buildCourseCard(BuildContext context, CourseModel course) {
-    String? imageUrl = course.thumbnail;
-    if (imageUrl != null && imageUrl.isNotEmpty && imageUrl.startsWith('/')) {
-      final host = AppConstants.baseUrl.replaceAll('/api', '');
-      imageUrl = '$host$imageUrl';
+    String? imageUrl = course.thumbnail?.trim();
+    if (imageUrl != null && imageUrl.isNotEmpty && imageUrl != 'null') {
+      if (!imageUrl.startsWith('http')) {
+        final host = AppConstants.baseUrl.replaceAll('/api', '');
+        final path = imageUrl.startsWith('/') ? imageUrl : '/$imageUrl';
+        imageUrl = '$host$path';
+      }
+    } else {
+      imageUrl = null;
     }
 
-    final sectionCount = course.sections?.length ?? 0;
-    final moduleCount =
-        course.sections?.fold<int>(
-          0,
-          (sum, s) => sum + (s.modules?.length ?? 0),
-        ) ??
-        0;
+    final sectionCount = course.sections.length;
+    final moduleCount = course.sections.isNotEmpty
+        ? course.sections.fold<int>(
+            0,
+            (sum, s) => sum + s.modules.length,
+          )
+        : course.modules.length;
 
     return GestureDetector(
       onTap: course.isBlocked

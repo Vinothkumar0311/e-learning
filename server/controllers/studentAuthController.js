@@ -1,25 +1,25 @@
 const jwt = require('jsonwebtoken');
-const { Student } = require('../models');
+const { Student, DeviceSession, SecurityAuditLog } = require('../models');
 const { success, error } = require('../utils/response');
 const { Op } = require('sequelize');
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
+const generateToken = (id, deviceId) => {
+  return jwt.sign({ id, device_id: deviceId }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRE || '7d'
   });
+};
+
+// Helper to extract client IP
+const getClientIp = (req) => {
+  return req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || 'Unknown';
 };
 
 // @desc    Register new student
 // @route   POST /api/student/register
 // @access  Public
 exports.register = async (req, res) => {
-  const { name, email, password, phone } = req.body;
+  const { name, email, password, phone, device_id, device_name } = req.body;
 
-  console.log("controller res here");
-  console.log("email : " + email);
-  console.log("password : " + password);
-  console.log("phone : " + phone);
-  console.log("name : " + name);
   try {
     const studentExists = await Student.findOne({ where: { email } });
 
@@ -27,19 +27,46 @@ exports.register = async (req, res) => {
       return error(res, 'Student already exists', 400);
     }
 
+    const deviceId = device_id || req.headers['x-device-id'] || 'UNKNOWN_DEVICE';
+    const clientIp = getClientIp(req);
+
     const student = await Student.create({
       name,
       email,
       password,
-      phone
+      phone,
+      device_id: deviceId
     });
 
-    const token = generateToken(student.id);
+    const token = generateToken(student.id, deviceId);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Create device session
+    await DeviceSession.create({
+      student_id: student.id,
+      device_id: deviceId,
+      device_name: device_name || 'Mobile Device',
+      ip_address: clientIp,
+      token_issued_at: new Date(),
+      token_expires_at: expiresAt,
+      is_active: true
+    });
+
+    // Log security event
+    await SecurityAuditLog.create({
+      student_id: student.id,
+      event_type: 'LOGIN_SUCCESS',
+      device_id: deviceId,
+      device_name: device_name || 'Mobile Device',
+      ip_address: clientIp,
+      details: { mode: 'registration' }
+    });
 
     success(res, {
       id: student.id,
       name: student.name,
       email: student.email,
+      device_id: deviceId,
       token
     }, 'Student registered successfully', 201);
   } catch (err) {
@@ -47,37 +74,35 @@ exports.register = async (req, res) => {
   }
 };
 
-// @desc    Auth student & get token
+// @desc    Auth student & get token with Single Device Protection
 // @route   POST /api/student/login
 // @access  Public
-// Supports two login modes:
-//   1. Admin-created students: { name: "Vinothkumar S", password: "9876543210" }
-//   2. Self-registered students (legacy): { email: "...", password: "..." }
 exports.login = async (req, res) => {
-  const { email, name, password } = req.body;
+  const { email, name, password, device_id, device_name } = req.body;
+  const requestDeviceId = device_id || req.headers['x-device-id'];
+  const clientIp = getClientIp(req);
 
   try {
     if (!password) {
       return error(res, 'Please provide a password', 400);
     }
 
+    if (!requestDeviceId) {
+      return error(res, 'Device ID is required for security validation', 400);
+    }
+
     let student = null;
 
     if (name) {
-      // Name-based login (admin-created students)
-      // Case-insensitive match so capitalisation differences don't matter
       student = await Student.findOne({
         where: { name: { [Op.like]: name.trim() } }
       });
       if (!student) {
-        console.log(`❌ Login failed: Student not found by name (${name})`);
         return error(res, 'Invalid credentials', 401);
       }
     } else if (email) {
-      // Email login (self-registered / legacy students)
       student = await Student.findOne({ where: { email } });
       if (!student) {
-        console.log(`❌ Login failed: Student not found (${email})`);
         return error(res, 'Invalid credentials', 401);
       }
     } else {
@@ -86,29 +111,146 @@ exports.login = async (req, res) => {
 
     const isMatch = await student.matchPassword(password);
     if (!isMatch) {
-      console.log(`❌ Login failed: Password mismatch for student ${student.id}`);
+      await SecurityAuditLog.create({
+        student_id: student.id,
+        event_type: 'LOGIN_FAILED',
+        device_id: requestDeviceId,
+        device_name: device_name || 'Unknown Device',
+        ip_address: clientIp,
+        details: { reason: 'Password mismatch' }
+      });
       return error(res, 'Invalid credentials', 401);
     }
 
+    // Check account status
     if (!student.is_active) {
-      return error(res, 'Your account has been deactivated. Contact your administrator.', 403);
+      const message = student.is_suspicious 
+        ? 'Your account has been temporarily disabled due to security concerns.'
+        : 'Your account has been deactivated. Contact your administrator.';
+      return res.status(403).json({
+        success: false,
+        message,
+        code: student.is_suspicious ? 'ACCOUNT_SUSPENDED' : 'ACCOUNT_DEACTIVATED'
+      });
     }
 
-    const token = generateToken(student.id);
+    const maxAttempts = parseInt(process.env.MAX_DEVICE_ATTEMPTS || '3', 10);
+
+    // Single Device check
+    if (student.device_id && student.device_id !== requestDeviceId) {
+      // Increment failed device attempts counter
+      const updatedAttempts = (student.failed_device_attempts || 0) + 1;
+      let isSuspiciousNow = false;
+
+      if (updatedAttempts >= maxAttempts) {
+        isSuspiciousNow = true;
+        await student.update({
+          failed_device_attempts: updatedAttempts,
+          is_suspicious: true,
+          is_active: false
+        });
+
+        await SecurityAuditLog.create({
+          student_id: student.id,
+          event_type: 'ACCOUNT_DEACTIVATED',
+          device_id: requestDeviceId,
+          device_name: device_name || 'Unknown Device',
+          ip_address: clientIp,
+          details: {
+            reason: 'Exceeded maximum unauthorized device login attempts',
+            attempts: updatedAttempts,
+            attempted_device_id: requestDeviceId
+          }
+        });
+
+        return res.status(403).json({
+          success: false,
+          message: 'Your account has been temporarily disabled due to security concerns.',
+          code: 'ACCOUNT_SUSPENDED'
+        });
+      } else {
+        await student.update({ failed_device_attempts: updatedAttempts });
+
+        await SecurityAuditLog.create({
+          student_id: student.id,
+          event_type: 'LOGIN_BLOCKED_DEVICE',
+          device_id: requestDeviceId,
+          device_name: device_name || 'Unknown Device',
+          ip_address: clientIp,
+          details: {
+            reason: 'Attempted login from unauthorized secondary device',
+            active_device_id: student.device_id,
+            attempted_device_id: requestDeviceId,
+            attempts: updatedAttempts
+          }
+        });
+
+        return res.status(403).json({
+          success: false,
+          message: 'This account is already active on another device. Please contact the administrator.',
+          code: 'DEVICE_BLOCKED'
+        });
+      }
+    }
+
+    // Success login on registered or new device
+    if (!student.device_id) {
+      await student.update({
+        device_id: requestDeviceId,
+        failed_device_attempts: 0
+      });
+    } else {
+      // Same device: reset failed attempts counter if any
+      if (student.failed_device_attempts > 0) {
+        await student.update({ failed_device_attempts: 0 });
+      }
+    }
+
+    const token = generateToken(student.id, requestDeviceId);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Deactivate old sessions if any exist
+    await DeviceSession.update(
+      { is_active: false },
+      { where: { student_id: student.id, is_active: true } }
+    );
+
+    // Create new active session
+    await DeviceSession.create({
+      student_id: student.id,
+      device_id: requestDeviceId,
+      device_name: device_name || 'Mobile Device',
+      ip_address: clientIp,
+      token_issued_at: new Date(),
+      token_expires_at: expiresAt,
+      is_active: true
+    });
+
+    // Record audit log
+    await SecurityAuditLog.create({
+      student_id: student.id,
+      event_type: 'LOGIN_SUCCESS',
+      device_id: requestDeviceId,
+      device_name: device_name || 'Mobile Device',
+      ip_address: clientIp,
+      details: { login_time: new Date() }
+    });
 
     success(res, {
       id: student.id,
       name: student.name,
       email: student.email,
       mobile_number: student.mobile_number,
+      device_id: requestDeviceId,
       token
     }, 'Login successful');
+
   } catch (err) {
     error(res, err.message);
   }
 };
 
-// @desc    Get current student profile
+// @desc    Get current student profile & validate session
 // @route   GET /api/student/me
 // @access  Private (Student)
 exports.getMe = async (req, res) => {
@@ -117,6 +259,34 @@ exports.getMe = async (req, res) => {
       attributes: { exclude: ['password'] }
     });
     success(res, student);
+  } catch (err) {
+    error(res, err.message);
+  }
+};
+
+// @desc    Logout student session
+// @route   POST /api/student/logout
+// @access  Private (Student)
+exports.logout = async (req, res) => {
+  try {
+    const deviceId = req.headers['x-device-id'] || req.user.device_id;
+    const clientIp = getClientIp(req);
+
+    // Deactivate sessions
+    await DeviceSession.update(
+      { is_active: false },
+      { where: { student_id: req.user.id, is_active: true } }
+    );
+
+    await SecurityAuditLog.create({
+      student_id: req.user.id,
+      event_type: 'ADMIN_FORCE_LOGOUT',
+      device_id: deviceId,
+      ip_address: clientIp,
+      details: { initiated_by: 'user' }
+    });
+
+    success(res, null, 'Logged out successfully');
   } catch (err) {
     error(res, err.message);
   }

@@ -193,7 +193,7 @@ const PaymentVerification = () => {
                 <h3 className="absolute top-4 left-4 text-sm font-semibold text-white/80">Uploaded Screenshot Proof</h3>
                 {selectedPayment.proof_url ? (
                   <img 
-                    src={`http://localhost:5000${selectedPayment.proof_url}`} 
+                    src={`https://royalneetapi.vinothvk.in${selectedPayment.proof_url}`} 
                     alt="Payment Proof Screenshot"
                     className="max-h-[70vh] object-contain rounded-lg border border-white/10"
                     onError={(e) => {

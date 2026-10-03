@@ -334,7 +334,7 @@ const Notifications = () => {
                           </div>
                           <div className="overflow-hidden">
                             <div className="flex items-center justify-between gap-2 mb-0.5">
-                              <span className="text-[11px] font-black text-indigo-300">EDUSTUDENT</span>
+                              <span className="text-[11px] font-black text-indigo-300">ROYAL NEET ACADEMY</span>
                               <span className="text-[9px] font-bold text-white/40">now</span>
                             </div>
                             <h5 className="text-[12px] font-black text-white line-clamp-1">{title || 'Your Notification Title'}</h5>

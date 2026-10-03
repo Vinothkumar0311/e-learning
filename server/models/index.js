@@ -15,6 +15,8 @@ const PaymentAuditLog = require('./PaymentAuditLog');
 const CourseSection = require('./CourseSection');
 const StudentAssignedCourse = require('./StudentAssignedCourse');
 const StudentProgress = require('./StudentProgress');
+const DeviceSession = require('./DeviceSession');
+const SecurityAuditLog = require('./SecurityAuditLog');
 
 // --- Associations ---
 
@@ -114,6 +116,15 @@ StudentProgress.belongsTo(Course, { foreignKey: 'course_id' });
 CourseModule.hasMany(StudentProgress, { foreignKey: 'module_id', as: 'moduleProgress' });
 StudentProgress.belongsTo(CourseModule, { foreignKey: 'module_id' });
 
+// --- DeviceSession & SecurityAuditLog associations ---
+Student.hasMany(DeviceSession, { foreignKey: 'student_id', as: 'deviceSessions' });
+DeviceSession.belongsTo(Student, { foreignKey: 'student_id', as: 'student' });
+
+Student.hasMany(SecurityAuditLog, { foreignKey: 'student_id', as: 'securityLogs' });
+SecurityAuditLog.belongsTo(Student, { foreignKey: 'student_id', as: 'student' });
+
+const AppSetting = require('./AppSetting');
+
 module.exports = {
   sequelize,
   User,
@@ -131,6 +142,10 @@ module.exports = {
   PaymentAuditLog,
   CourseSection,
   StudentAssignedCourse,
-  StudentProgress
+  StudentProgress,
+  DeviceSession,
+  SecurityAuditLog,
+  AppSetting
 };
+
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, 
@@ -20,6 +20,9 @@ import {
   GraduationCap
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'sonner';
+
 
 const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, path: '/' },
@@ -39,6 +42,15 @@ const navItems = [
 
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    toast.success('Logged out successfully');
+    navigate('/login');
+  };
+
 
   return (
     <motion.div
@@ -53,19 +65,19 @@ const Sidebar = () => {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2.5"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-              <GraduationCap className="text-white w-5 h-5" />
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-md border border-white/20 overflow-hidden p-0.5">
+              <img src="/logo.png" alt="RNA" className="w-full h-full object-cover rounded-full" />
             </div>
-            <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              EduAdmin
+            <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent leading-tight">
+              Royal NEET
             </span>
           </motion.div>
         )}
         {collapsed && (
-           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-             <GraduationCap className="text-white w-6 h-6" />
+           <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-md border border-white/20 overflow-hidden p-0.5">
+             <img src="/logo.png" alt="RNA" className="w-full h-full object-cover rounded-full" />
            </div>
         )}
         <button 
@@ -111,10 +123,13 @@ const Sidebar = () => {
       </nav>
 
       <div className="p-4 border-t border-white/10">
-        <button className={cn(
-          "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-all group",
-          collapsed ? "justify-center" : ""
-        )}>
+        <button 
+          onClick={handleLogout}
+          className={cn(
+            "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-red-500 hover:bg-red-500/10 transition-all group",
+            collapsed ? "justify-center" : ""
+          )}
+        >
           <LogOut size={collapsed ? 24 : 20} className="group-hover:translate-x-1 transition-transform" />
           {!collapsed && <span className="font-medium">Logout</span>}
         </button>

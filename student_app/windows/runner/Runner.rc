@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "student_app" "\0"
+            VALUE "CompanyName", "com.royalneetacademy" "\0"
+            VALUE "FileDescription", "Royal NEET Academy" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "student_app" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "student_app.exe" "\0"
-            VALUE "ProductName", "student_app" "\0"
+            VALUE "InternalName", "royal_neet_academy" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.royalneetacademy. All rights reserved." "\0"
+            VALUE "OriginalFilename", "royal_neet_academy.exe" "\0"
+            VALUE "ProductName", "Royal NEET Academy" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

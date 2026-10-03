@@ -42,6 +42,21 @@ const Student = sequelize.define('Student', {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
+  device_id: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Unique ID of current active logged-in device'
+  },
+  failed_device_attempts: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    comment: 'Count of unauthorized login attempts from different devices'
+  },
+  is_suspicious: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Flagged true when account is deactivated due to suspicious multi-device activity'
+  },
   joined_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW

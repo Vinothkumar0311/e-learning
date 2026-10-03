@@ -105,7 +105,7 @@ const Payments = () => {
       // Download payments report CSV
       const token = localStorage.getItem('token');
       // Construct exact backend download link
-      const exportUrl = `http://localhost:5000/api/payments/export`;
+      const exportUrl = `https://royalneetapi.vinothvk.in/api/payments/export`;
       
       // Perform direct download opening window
       window.open(exportUrl, '_blank');

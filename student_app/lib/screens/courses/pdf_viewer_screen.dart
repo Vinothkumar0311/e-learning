@@ -38,15 +38,26 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
     if (finalUrl.startsWith('/')) {
       final host = AppConstants.baseUrl.replaceAll('/api', '');
       finalUrl = '$host$finalUrl';
-    } else if (finalUrl.startsWith('http://192.168.1.107:5000')) {
-      // If server returned the hardcoded local IP from original route, 
-      // check if we need to replace it with 10.0.2.2 or current baseUrl host
-      final baseUrlUri = Uri.parse(AppConstants.baseUrl);
-      final urlUri = Uri.parse(finalUrl);
-      finalUrl = urlUri.replace(
-        host: baseUrlUri.host,
-        port: baseUrlUri.port,
-      ).toString();
+    } else {
+      try {
+        final baseUrlUri = Uri.parse(AppConstants.baseUrl);
+        final urlUri = Uri.parse(finalUrl);
+        // Only replace if the host/port doesn't match the baseUrl, or if the scheme is http but baseUrl is https
+        if (urlUri.host != baseUrlUri.host || urlUri.scheme != baseUrlUri.scheme) {
+          // Reconstruct the URI using AppConstants.baseUrl's scheme, host, and port, but keeping the original path, query, and fragment.
+          final reconstructed = Uri(
+            scheme: baseUrlUri.scheme,
+            host: baseUrlUri.host,
+            port: baseUrlUri.port == 443 || baseUrlUri.port == 80 ? null : baseUrlUri.port,
+            path: urlUri.path,
+            query: urlUri.hasQuery ? urlUri.query : null,
+            fragment: urlUri.hasFragment ? urlUri.fragment : null,
+          );
+          finalUrl = reconstructed.toString();
+        }
+      } catch (e) {
+        // Fallback to original URL if parsing fails
+      }
     }
 
     return Scaffold(
@@ -91,7 +102,7 @@ class _PDFViewerScreenState extends State<PDFViewerScreen> {
         children: [
           PDF(
             enableSwipe: true,
-            swipeHorizontal: false,
+            swipeHorizontal: true,
             autoSpacing: true,
             pageFling: true,
             pageSnap: true,

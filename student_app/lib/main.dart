@@ -21,6 +21,9 @@ import 'core/constants/app_constants.dart';
 import 'models/course_model.dart';
 import 'providers/progress_provider.dart';
 import 'screens/performance/performance_screen.dart';
+import 'providers/admin_provider.dart';
+import 'screens/admin/admin_login_screen.dart';
+import 'screens/admin/admin_shell.dart';
 
 void main() {
   runApp(
@@ -30,6 +33,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => CourseProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
+        ChangeNotifierProvider(create: (_) => AdminProvider()),
       ],
       child: const MyApp(),
     ),
@@ -88,6 +92,17 @@ final _router = GoRouter(
         );
       },
     ),
+    // Admin Module Routes
+    GoRoute(path: '/admin/login', builder: (context, state) => const AdminLoginScreen()),
+    GoRoute(path: '/admin/dashboard', builder: (context, state) => const AdminShell(initialIndex: 0)),
+    GoRoute(path: '/admin/courses', builder: (context, state) => const AdminShell(initialIndex: 1)),
+    GoRoute(path: '/admin/students', builder: (context, state) => const AdminShell(initialIndex: 2)),
+    GoRoute(path: '/admin/payments', builder: (context, state) => const AdminShell(initialIndex: 3)),
+    GoRoute(path: '/admin/live-classes', builder: (context, state) => const AdminShell(initialIndex: 4)),
+    GoRoute(path: '/admin/materials', builder: (context, state) => const AdminShell(initialIndex: 5)),
+    GoRoute(path: '/admin/notifications', builder: (context, state) => const AdminShell(initialIndex: 6)),
+    GoRoute(path: '/admin/reports', builder: (context, state) => const AdminShell(initialIndex: 7)),
+    GoRoute(path: '/admin/security', builder: (context, state) => const AdminShell(initialIndex: 8)),
   ],
 );
 
@@ -97,7 +112,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'EduStudent',
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: _router,

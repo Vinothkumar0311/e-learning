@@ -191,7 +191,7 @@ exports.getModules = async (req, res) => {
   }
 };
 
-// @desc    Create a course module
+// @desc    Create course module(s) (supports single module or batch array of videos/modules)
 // @route   POST /api/courses/:courseId/modules
 // @access  Private (Admin)
 exports.createModule = async (req, res) => {
@@ -199,7 +199,28 @@ exports.createModule = async (req, res) => {
     const course = await Course.findByPk(req.params.courseId);
     if (!course) return error(res, 'Course not found', 404);
 
-    const { title, order, type, duration, youtube_url, file_url, section_id } = req.body;
+    const items = Array.isArray(req.body)
+      ? req.body
+      : (Array.isArray(req.body.modules) ? req.body.modules : (Array.isArray(req.body.videos) ? req.body.videos : null));
+
+    if (items && items.length > 0) {
+      const recordsToCreate = items.map((item, idx) => ({
+        title: item.title,
+        order: item.order !== undefined ? parseInt(item.order) : idx,
+        type: item.type || 'video',
+        duration: item.duration ? parseInt(item.duration) : null,
+        youtube_url: item.type === 'video' ? (item.youtube_url || null) : null,
+        file_url: item.type === 'pdf' ? (item.file_url || null) : null,
+        section_id: item.section_id || req.body.section_id || null,
+        is_free: item.is_free !== undefined ? item.is_free : false,
+        course_id: req.params.courseId
+      }));
+
+      const createdModules = await CourseModule.bulkCreate(recordsToCreate);
+      return success(res, createdModules, `${createdModules.length} modules added successfully`, 201);
+    }
+
+    const { title, order, type, duration, youtube_url, file_url, section_id, is_free } = req.body;
     const courseModule = await CourseModule.create({
       title,
       order: order || 0,
@@ -208,13 +229,15 @@ exports.createModule = async (req, res) => {
       youtube_url,
       file_url,
       section_id: section_id || null,
+      is_free: is_free !== undefined ? is_free : false,
       course_id: req.params.courseId
     });
-    success(res, courseModule, 'Module created successfully', 201);
+    return success(res, courseModule, 'Module created successfully', 201);
   } catch (err) {
-    error(res, err.message);
+    return error(res, err.message);
   }
 };
+
 
 // @desc    Update a course module
 // @route   PUT /api/courses/:courseId/modules/:id

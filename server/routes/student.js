@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe } = require('../controllers/studentAuthController');
+const { register, login, getMe, logout } = require('../controllers/studentAuthController');
 const { 
   getCourses,
   getCourse,
@@ -25,6 +25,7 @@ const { studentProtect, optionalStudentProtect } = require('../middleware/auth')
 router.post('/register', register);
 router.post('/login', login);
 router.get('/me', studentProtect, getMe);
+router.post('/logout', studentProtect, logout);
 
 // Courses & Enrollments
 // optionalStudentProtect: decodes JWT if present, but does NOT block unauthenticated requests

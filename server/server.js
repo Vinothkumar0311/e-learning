@@ -2,17 +2,28 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 const { sequelize } = require('./models');
 
 const app = express();
 
+// --- Request Logging Setup ---
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+const accessLogStream = fs.createWriteStream(path.join(logsDir, 'access.log'), { flags: 'a' });
+
 // --- Middleware ---
 app.use(express.json());
 app.use(cors());
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-}
+
+// Always log requests to console (useful for PM2/Docker logs on VPS)
+app.use(morgan('dev'));
+
+// Capture all request logs to a file in combined format
+app.use(morgan('combined', { stream: accessLogStream }));
 
 // Serve uploads statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -29,6 +40,8 @@ app.use('/api/payments', require('./routes/payments'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/performance', require('./routes/performance'));
+app.use('/api/security', require('./routes/security'));
+app.use('/api/app', require('./routes/app'));
 
 // Health check
 app.get('/api', (req, res) => {

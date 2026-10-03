@@ -432,6 +432,180 @@ const ModuleModal = ({ module, courseId, sections = [], onClose, onSave }) => {
   );
 };
 
+// --- Multi Video Add Modal ---
+const MultiVideoModal = ({ courseId, sections = [], onClose, onSave }) => {
+  const [sectionId, setSectionId] = useState('');
+  const [videos, setVideos] = useState([
+    { title: '', youtube_url: '', duration: '15', is_free: false },
+    { title: '', youtube_url: '', duration: '15', is_free: false }
+  ]);
+  const [saving, setSaving] = useState(false);
+
+  const handleVideoChange = (index, field, value) => {
+    setVideos(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  const addRow = () => {
+    setVideos(prev => [...prev, { title: '', youtube_url: '', duration: '15', is_free: false }]);
+  };
+
+  const removeRow = (index) => {
+    if (videos.length === 1) return;
+    setVideos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const validVideos = videos.filter(v => v.title.trim() && v.youtube_url.trim());
+    if (validVideos.length === 0) {
+      toast.error('Please enter title and YouTube URL for at least one video.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        section_id: sectionId ? parseInt(sectionId) : null,
+        videos: validVideos.map((v, i) => ({
+          title: v.title.trim(),
+          type: 'video',
+          youtube_url: v.youtube_url.trim(),
+          duration: v.duration ? parseInt(v.duration) : null,
+          is_free: v.is_free,
+          order: i
+        }))
+      };
+
+      const { data } = await api.post(`/courses/${courseId}/modules`, payload);
+      onSave(data.data, true);
+      toast.success(`Successfully added ${validVideos.length} videos!`);
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add videos');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="glass-card rounded-2xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] flex flex-col"
+      >
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-border">
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Video className="text-primary" size={22} /> Add Multiple Videos
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Add multiple YouTube video lessons to this course syllabus at once.</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors"><X size={18} /></button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Target Course Section</label>
+            <select
+              className="mt-1 w-full bg-background border border-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+              value={sectionId}
+              onChange={(e) => setSectionId(e.target.value)}
+            >
+              <option value="">-- No Section (Unassigned) --</option>
+              {sections.map((sec) => (
+                <optgroup key={sec.id} label={sec.title}>
+                  <option value={sec.id}>{sec.title} (Directly in Section)</option>
+                  {(sec.subsections || []).map((sub) => (
+                    <option key={sub.id} value={sub.id}>&nbsp;&nbsp;&nbsp;&nbsp;↳ {sub.title}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3">
+            {videos.map((vid, i) => (
+              <div key={i} className="p-3 rounded-xl bg-muted/40 border border-border space-y-3 relative">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-primary">Video #{i + 1}</span>
+                  {videos.length > 1 && (
+                    <button type="button" onClick={() => removeRow(i)} className="text-xs text-rose-500 hover:underline">Remove</button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Title *</label>
+                    <input
+                      className="mt-0.5 w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs"
+                      value={vid.title}
+                      onChange={(e) => handleVideoChange(i, 'title', e.target.value)}
+                      placeholder="e.g. Lesson 1: Overview"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">YouTube URL *</label>
+                    <input
+                      className="mt-0.5 w-full bg-background border border-border rounded-lg px-3 py-1.5 text-xs"
+                      value={vid.youtube_url}
+                      onChange={(e) => handleVideoChange(i, 'youtube_url', e.target.value)}
+                      placeholder="https://youtube.com/watch?v=..."
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 pt-1">
+                  <div className="w-32">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Duration (mins)</label>
+                    <input
+                      type="number"
+                      className="mt-0.5 w-full bg-background border border-border rounded-lg px-3 py-1 text-xs"
+                      value={vid.duration}
+                      onChange={(e) => handleVideoChange(i, 'duration', e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 pt-3">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase">Free Access:</label>
+                    <input
+                      type="checkbox"
+                      checked={vid.is_free}
+                      onChange={(e) => handleVideoChange(i, 'is_free', e.target.checked)}
+                      className="w-4 h-4 rounded text-primary border-border cursor-pointer"
+                    />
+                    <span className="text-xs">{vid.is_free ? '🆓 Free' : '👑 Premium'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-border">
+            <button
+              type="button"
+              onClick={addRow}
+              className="px-3 py-1.5 rounded-lg border border-dashed border-primary/40 text-primary hover:bg-primary/10 text-xs font-bold flex items-center gap-1.5"
+            >
+              <Plus size={14} /> Add Another Video Row
+            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl border border-border text-xs font-medium">Cancel</button>
+              <button type="submit" disabled={saving} className="px-5 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 flex items-center gap-2">
+                {saving && <Loader2 size={14} className="animate-spin" />}
+                Add All Videos ({videos.filter(v => v.title.trim()).length})
+              </button>
+            </div>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
 // --- Section Create/Edit Modal ---
 const SectionModal = ({ section, courseId, existingSections = [], onClose, onSave }) => {
   const [form, setForm] = useState({
@@ -554,6 +728,7 @@ const Courses = () => {
   
   // Module managing states
   const [showModuleModal, setShowModuleModal] = useState(false);
+  const [showMultiVideoModal, setShowMultiVideoModal] = useState(false);
   const [editingModule, setEditingModule] = useState(null);
 
   // Section managing states
@@ -678,6 +853,15 @@ const Courses = () => {
             courseId={selectedCourse.id}
             sections={courseDetails.sections || []}
             onClose={() => { setShowModuleModal(false); setEditingModule(null); }}
+            onSave={handleModuleSave}
+          />
+        )}
+
+        {showMultiVideoModal && (
+          <MultiVideoModal
+            courseId={selectedCourse.id}
+            sections={courseDetails.sections || []}
+            onClose={() => setShowMultiVideoModal(false)}
             onSave={handleModuleSave}
           />
         )}
@@ -827,6 +1011,12 @@ const Courses = () => {
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all font-semibold text-xs shadow-md shadow-primary/15 cursor-pointer"
                   >
                     <Plus size={14} /> Add Module
+                  </button>
+                  <button
+                    onClick={() => setShowMultiVideoModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-all font-semibold text-xs shadow-md shadow-blue-500/15 cursor-pointer"
+                  >
+                    <Video size={14} /> Add Multiple Videos
                   </button>
                 </div>
               </div>
