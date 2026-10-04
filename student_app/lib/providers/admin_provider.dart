@@ -234,6 +234,9 @@ class AdminProvider extends ChangeNotifier {
     try {
       await _adminService.createModule(courseId, data);
       await fetchCourses();
+      try {
+        await fetchCourseDetails(courseId);
+      } catch (_) {}
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -247,6 +250,9 @@ class AdminProvider extends ChangeNotifier {
     try {
       await _adminService.updateModule(courseId, moduleId, data);
       await fetchCourses();
+      try {
+        await fetchCourseDetails(courseId);
+      } catch (_) {}
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -260,6 +266,9 @@ class AdminProvider extends ChangeNotifier {
     try {
       await _adminService.deleteModule(courseId, moduleId);
       await fetchCourses();
+      try {
+        await fetchCourseDetails(courseId);
+      } catch (_) {}
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -273,6 +282,9 @@ class AdminProvider extends ChangeNotifier {
     try {
       await _adminService.createMultipleModules(courseId, modules, sectionId: sectionId);
       await fetchCourses();
+      try {
+        await fetchCourseDetails(courseId);
+      } catch (_) {}
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -300,6 +312,9 @@ class AdminProvider extends ChangeNotifier {
     try {
       await _adminService.createSection(courseId, data);
       await fetchCourses();
+      try {
+        await fetchCourseDetails(courseId);
+      } catch (_) {}
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -313,6 +328,9 @@ class AdminProvider extends ChangeNotifier {
     try {
       await _adminService.updateSection(courseId, sectionId, data);
       await fetchCourses();
+      try {
+        await fetchCourseDetails(courseId);
+      } catch (_) {}
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -326,6 +344,9 @@ class AdminProvider extends ChangeNotifier {
     try {
       await _adminService.deleteSection(courseId, sectionId);
       await fetchCourses();
+      try {
+        await fetchCourseDetails(courseId);
+      } catch (_) {}
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -359,6 +380,15 @@ class AdminProvider extends ChangeNotifier {
   Future<void> reactivateStudentAccount(dynamic studentId) async {
     try {
       await _adminService.reactivateStudentAccount(studentId);
+      await fetchStudents();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> resetStudentDevice(dynamic studentId) async {
+    try {
+      await _adminService.resetStudentDevice(studentId);
       await fetchStudents();
     } catch (e) {
       rethrow;

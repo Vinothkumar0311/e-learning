@@ -418,5 +418,14 @@ class AdminService {
       throw ErrorHandler.getErrorMessage(e, 'Failed to update app version settings');
     }
   }
+
+  Future<void> resetStudentDevice(dynamic studentId) async {
+    try {
+      await _dio.post('/students/$studentId/reset-device');
+    } on DioException catch (e) {
+      throw ErrorHandler.getErrorMessage(e, 'Failed to reset student device');
+    }
+  }
 }
+
 

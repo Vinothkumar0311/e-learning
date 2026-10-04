@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -21,7 +22,8 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
 
   // When a course is selected, show its full curriculum view
   CourseModel? _selectedCourse;
-  bool _isLoadingCourseDetails = false;
+  bool _isBackgroundSyncing = false;
+  Timer? _liveSyncTimer;
 
   // Track expanded state for sections in curriculum view
   final Map<int, bool> _expandedSections = {};
@@ -36,24 +38,153 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
 
   @override
   void dispose() {
+    _stopLiveSync();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _refreshSelectedCourse() async {
+  void _startLiveSync() {
+    _liveSyncTimer?.cancel();
+    _liveSyncTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted && _selectedCourse != null && !_isBackgroundSyncing) {
+        _refreshSelectedCourse(silent: true);
+      }
+    });
+  }
+
+  void _stopLiveSync() {
+    _liveSyncTimer?.cancel();
+    _liveSyncTimer = null;
+  }
+
+  void _openCourseCurriculum(CourseModel c) {
+    setState(() {
+      _selectedCourse = c;
+      _isBackgroundSyncing = true;
+    });
+    _startLiveSync();
+    _refreshSelectedCourse(silent: false);
+  }
+
+  void _closeCourseCurriculum() {
+    _stopLiveSync();
+    setState(() => _selectedCourse = null);
+    context.read<AdminProvider>().fetchCourses();
+  }
+
+  Future<void> _refreshSelectedCourse({bool silent = true}) async {
     if (_selectedCourse == null) return;
-    setState(() => _isLoadingCourseDetails = true);
+    if (!silent) {
+      setState(() => _isBackgroundSyncing = true);
+    }
     try {
       final updated = await context.read<AdminProvider>().fetchCourseDetails(_selectedCourse!.id);
-      if (mounted) {
+      if (mounted && _selectedCourse != null && _selectedCourse!.id == updated.id) {
         setState(() {
           _selectedCourse = updated;
-          _isLoadingCourseDetails = false;
+          _isBackgroundSyncing = false;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _isLoadingCourseDetails = false);
+      if (mounted) {
+        setState(() {
+          _isBackgroundSyncing = false;
+        });
+      }
     }
+  }
+
+  void _applyOptimisticModules(List<CourseModuleModel> newMods, int? targetSectionId) {
+    if (_selectedCourse == null) return;
+    final current = _selectedCourse!;
+
+    final updatedAllModules = [...current.modules, ...newMods];
+
+    List<CourseSectionModel> updateSections(List<CourseSectionModel> sections) {
+      return sections.map((sec) {
+        if (sec.id == targetSectionId) {
+          return CourseSectionModel(
+            id: sec.id,
+            title: sec.title,
+            description: sec.description,
+            order: sec.order,
+            parentId: sec.parentId,
+            modules: [...sec.modules, ...newMods],
+            subsections: updateSections(sec.subsections),
+          );
+        }
+        return CourseSectionModel(
+          id: sec.id,
+          title: sec.title,
+          description: sec.description,
+          order: sec.order,
+          parentId: sec.parentId,
+          modules: sec.modules,
+          subsections: updateSections(sec.subsections),
+        );
+      }).toList();
+    }
+
+    setState(() {
+      _selectedCourse = CourseModel(
+        id: current.id,
+        title: current.title,
+        description: current.description,
+        price: current.price,
+        thumbnail: current.thumbnail,
+        category: current.category,
+        level: current.level,
+        status: current.status,
+        instructorName: current.instructorName,
+        modules: updatedAllModules,
+        sections: updateSections(current.sections),
+        isBlocked: current.isBlocked,
+        blockReason: current.blockReason,
+        paidAmount: current.paidAmount,
+        remainingAmount: current.remainingAmount,
+      );
+    });
+  }
+
+  void _applyOptimisticRemoveModule(int moduleId) {
+    if (_selectedCourse == null) return;
+    final current = _selectedCourse!;
+
+    final updatedAllModules = current.modules.where((m) => m.id != moduleId).toList();
+
+    List<CourseSectionModel> filterSections(List<CourseSectionModel> sections) {
+      return sections.map((sec) {
+        return CourseSectionModel(
+          id: sec.id,
+          title: sec.title,
+          description: sec.description,
+          order: sec.order,
+          parentId: sec.parentId,
+          modules: sec.modules.where((m) => m.id != moduleId).toList(),
+          subsections: filterSections(sec.subsections),
+        );
+      }).toList();
+    }
+
+    setState(() {
+      _selectedCourse = CourseModel(
+        id: current.id,
+        title: current.title,
+        description: current.description,
+        price: current.price,
+        thumbnail: current.thumbnail,
+        category: current.category,
+        level: current.level,
+        status: current.status,
+        instructorName: current.instructorName,
+        modules: updatedAllModules,
+        sections: filterSections(current.sections),
+        isBlocked: current.isBlocked,
+        blockReason: current.blockReason,
+        paidAmount: current.paidAmount,
+        remainingAmount: current.remainingAmount,
+      );
+    });
   }
 
   // ─── Course Dialog (Create / Edit) ──────────────────────────────────────────
@@ -479,6 +610,7 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                     'order': int.tryParse(orderController.text.trim()) ?? 0,
                   };
 
+                  if (ctx.mounted) Navigator.pop(ctx);
                   try {
                     final provider = context.read<AdminProvider>();
                     if (isEditing) {
@@ -486,17 +618,18 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                     } else {
                       await provider.createSection(course.id, payload);
                     }
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    await _refreshSelectedCourse();
+                    await _refreshSelectedCourse(silent: true);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(isEditing ? 'Section updated!' : 'Section created!'),
+                          content: Text(isEditing ? 'Section updated!' : 'Section created & synced live!'),
                           backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 2),
                         ),
                       );
                     }
                   } catch (e) {
+                    await _refreshSelectedCourse(silent: true);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
@@ -532,16 +665,17 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
+              if (ctx.mounted) Navigator.pop(ctx);
               try {
                 await context.read<AdminProvider>().deleteSection(course.id, section.id);
-                if (ctx.mounted) Navigator.pop(ctx);
-                await _refreshSelectedCourse();
+                await _refreshSelectedCourse(silent: true);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Section deleted successfully!'), backgroundColor: Colors.green),
                   );
                 }
               } catch (e) {
+                await _refreshSelectedCourse(silent: true);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
@@ -875,6 +1009,27 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                       'is_free': isFree,
                     };
 
+                    // Close modal immediately for instant snappiness
+                    if (ctx.mounted) Navigator.pop(ctx);
+
+                    if (!isEditing) {
+                      final optimisticMod = CourseModuleModel(
+                        id: -DateTime.now().millisecondsSinceEpoch,
+                        title: payload['title'] as String,
+                        type: type,
+                        duration: payload['duration'] as int?,
+                        youtubeUrl: payload['youtube_url'] as String?,
+                        fileUrl: payload['file_url'] as String?,
+                        order: payload['order'] as int? ?? 0,
+                        sectionId: targetSectionId,
+                        isFree: isFree,
+                      );
+                      if (targetSectionId != null) {
+                        _expandedSections[targetSectionId!] = true;
+                      }
+                      _applyOptimisticModules([optimisticMod], targetSectionId);
+                    }
+
                     try {
                       final provider = context.read<AdminProvider>();
                       if (isEditing) {
@@ -882,17 +1037,24 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                       } else {
                         await provider.createModule(course.id, payload);
                       }
-                      if (ctx.mounted) Navigator.pop(ctx);
-                      await _refreshSelectedCourse();
+                      await _refreshSelectedCourse(silent: true);
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(isEditing ? 'Module updated successfully!' : 'Module added successfully!'),
+                            content: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                                const SizedBox(width: 8),
+                                Text(isEditing ? 'Module updated successfully!' : 'Module added & synced live!'),
+                              ],
+                            ),
                             backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 2),
                           ),
                         );
                       }
                     } catch (e) {
+                      await _refreshSelectedCourse(silent: true);
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
@@ -1131,23 +1293,76 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                     return;
                   }
 
+                  // Close modal immediately for instant snappy UX
+                  if (ctx.mounted) Navigator.pop(ctx);
+
+                  // 1. Optimistic UI update: Instantly insert into local state
+                  final nowMs = DateTime.now().millisecondsSinceEpoch;
+                  final optimisticMods = validPayload.map((p) {
+                    final idx = p['order'] as int? ?? 0;
+                    return CourseModuleModel(
+                      id: -(nowMs + idx),
+                      title: p['title'] as String,
+                      type: 'video',
+                      duration: p['duration'] as int?,
+                      youtubeUrl: p['youtube_url'] as String?,
+                      fileUrl: null,
+                      order: idx,
+                      sectionId: targetSectionId,
+                      isFree: p['is_free'] == true,
+                    );
+                  }).toList();
+
+                  if (targetSectionId != null) {
+                    _expandedSections[targetSectionId!] = true;
+                  }
+                  _applyOptimisticModules(optimisticMods, targetSectionId);
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Row(
+                          children: [
+                            const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                            const SizedBox(width: 10),
+                            Text('Syncing ${validPayload.length} videos live...'),
+                          ],
+                        ),
+                        duration: const Duration(seconds: 2),
+                        backgroundColor: Colors.blueAccent,
+                      ),
+                    );
+                  }
+
+                  // 2. Perform network call in background
                   try {
                     await context.read<AdminProvider>().createMultipleModules(
                       course.id,
                       validPayload,
                       sectionId: targetSectionId,
                     );
-                    if (ctx.mounted) Navigator.pop(ctx);
-                    await _refreshSelectedCourse();
+                    await _refreshSelectedCourse(silent: true);
                     if (mounted) {
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('${validPayload.length} videos added successfully!'), backgroundColor: Colors.green),
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                              const SizedBox(width: 8),
+                              Text('${validPayload.length} videos added & synced live!'),
+                            ],
+                          ),
+                          backgroundColor: Colors.green,
+                          duration: const Duration(seconds: 2),
+                        ),
                       );
                     }
                   } catch (e) {
+                    await _refreshSelectedCourse(silent: true);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                        SnackBar(content: Text('Failed to add videos: $e'), backgroundColor: Colors.red),
                       );
                     }
                   }
@@ -1235,12 +1450,12 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
   // ─── Main Scaffold Build ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AdminProvider>();
+
     // If a course is selected for curriculum management, render its Curriculum View
     if (_selectedCourse != null) {
       return _buildCourseCurriculumView(_selectedCourse!);
     }
-
-    final provider = context.watch<AdminProvider>();
     final allCourses = provider.courses;
 
     // Filter courses
@@ -1457,10 +1672,7 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Colors.white10)),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          setState(() => _selectedCourse = c);
-          _refreshSelectedCourse();
-        },
+        onTap: () => _openCourseCurriculum(c),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -1610,10 +1822,7 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                         style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                         overflow: TextOverflow.ellipsis,
                       ),
-                      onPressed: () {
-                        setState(() => _selectedCourse = c);
-                        _refreshSelectedCourse();
-                      },
+                      onPressed: () => _openCourseCurriculum(c),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1644,7 +1853,14 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
   Widget _buildCourseCurriculumView(CourseModel course) {
     final modules = course.modules;
     final sections = course.sections;
-    final unassignedModules = modules.where((m) => m.sectionId == null).toList();
+    final allKnownSectionIds = <int>{};
+    for (final sec in sections) {
+      allKnownSectionIds.add(sec.id);
+      for (final sub in sec.subsections) {
+        allKnownSectionIds.add(sub.id);
+      }
+    }
+    final unassignedModules = modules.where((m) => m.sectionId == null || !allKnownSectionIds.contains(m.sectionId)).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
@@ -1653,18 +1869,57 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           tooltip: 'Back to all courses',
-          onPressed: () => setState(() => _selectedCourse = null),
+          onPressed: _closeCourseCurriculum,
         ),
-        title: Text(
-          course.title,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17),
-          overflow: TextOverflow.ellipsis,
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                course.title,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.green.withAlpha(25),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.greenAccent.withAlpha(80)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Colors.greenAccent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'LIVE',
+                    style: TextStyle(color: Colors.greenAccent, fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: 'Refresh Curriculum',
-            onPressed: _refreshSelectedCourse,
+            icon: _isBackgroundSyncing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppConstants.primaryColor),
+                  )
+                : const Icon(Icons.refresh_rounded, color: Colors.white),
+            tooltip: 'Live Refresh',
+            onPressed: () => _refreshSelectedCourse(silent: false),
           ),
           IconButton(
             icon: const Icon(Icons.edit_note_rounded, color: Colors.white),
@@ -1672,14 +1927,22 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
             onPressed: () => _showCourseDialog(course),
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2),
+          child: _isBackgroundSyncing
+              ? const LinearProgressIndicator(
+                  color: AppConstants.primaryColor,
+                  backgroundColor: Colors.transparent,
+                  minHeight: 2,
+                )
+              : const SizedBox(height: 2),
+        ),
         elevation: 0,
       ),
-      body: _isLoadingCourseDetails
-          ? const Center(child: CircularProgressIndicator(color: AppConstants.primaryColor))
-          : RefreshIndicator(
-              onRefresh: _refreshSelectedCourse,
-              color: AppConstants.primaryColor,
-              child: ListView(
+      body: RefreshIndicator(
+        onRefresh: () => _refreshSelectedCourse(silent: false),
+        color: AppConstants.primaryColor,
+        child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
                   // ─── Header Info Card ─────────────────────────────────────
@@ -1841,8 +2104,13 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
   // ─── Section Card Widget (with Subsections and Modules) ─────────────────────
   Widget _buildSectionCard(CourseModel course, CourseSectionModel section) {
     final isExpanded = _expandedSections[section.id] ?? true;
-    final directModules = section.modules;
-    final totalSectionLectures = directModules.length + section.subsections.fold<int>(0, (sum, sub) => sum + sub.modules.length);
+    final directModules = section.modules.isNotEmpty
+        ? section.modules
+        : course.modules.where((m) => m.sectionId == section.id).toList();
+    final totalSectionLectures = directModules.length + section.subsections.fold<int>(0, (sum, sub) {
+      final sm = sub.modules.isNotEmpty ? sub.modules : course.modules.where((m) => m.sectionId == sub.id).toList();
+      return sum + sm.length;
+    });
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -2045,6 +2313,10 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
 
   // ─── Subsection Tile ────────────────────────────────────────────────────────
   Widget _buildSubsectionTile(CourseModel course, CourseSectionModel sub) {
+    final subModules = sub.modules.isNotEmpty
+        ? sub.modules
+        : course.modules.where((m) => m.sectionId == sub.id).toList();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -2075,7 +2347,7 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                   ),
                 ),
                 Text(
-                  '${sub.modules.length} lessons',
+                  '${subModules.length} lessons',
                   style: const TextStyle(color: Colors.white60, fontSize: 11),
                 ),
                 IconButton(
@@ -2091,9 +2363,9 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
               ],
             ),
           ),
-          if (sub.modules.isNotEmpty) ...[
+          if (subModules.isNotEmpty) ...[
             const Divider(color: Colors.white10, height: 1),
-            ...sub.modules.map((m) => _buildModuleTile(course, m)),
+            ...subModules.map((m) => _buildModuleTile(course, m)),
           ],
         ],
       ),
@@ -2226,15 +2498,17 @@ class _AdminCoursesScreenState extends State<AdminCoursesScreen> {
                 icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18),
                 tooltip: 'Delete Module',
                 onPressed: () async {
+                  _applyOptimisticRemoveModule(m.id);
                   try {
                     await context.read<AdminProvider>().deleteModule(course.id, m.id);
-                    await _refreshSelectedCourse();
+                    await _refreshSelectedCourse(silent: true);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Module deleted successfully!'), backgroundColor: Colors.green),
                       );
                     }
                   } catch (e) {
+                    await _refreshSelectedCourse(silent: true);
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),

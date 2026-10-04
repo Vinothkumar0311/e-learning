@@ -238,3 +238,43 @@ exports.removeAssignedCourse = async (req, res) => {
     error(res, err.message);
   }
 };
+
+// @desc    Reset student device lock (allow logging in from a new device)
+// @route   POST /api/students/:id/reset-device
+// @access  Private (Admin)
+exports.resetStudentDevice = async (req, res) => {
+  try {
+    const student = await Student.findByPk(req.params.id);
+    if (!student) return error(res, 'Student not found', 404);
+
+    await student.update({
+      device_id: null,
+      failed_device_attempts: 0,
+      is_suspicious: false,
+      is_active: true
+    });
+
+    // Invalidate old device sessions
+    const { DeviceSession, SecurityAuditLog } = require('../models');
+    await DeviceSession.update(
+      { is_active: false },
+      { where: { student_id: student.id } }
+    );
+
+    await SecurityAuditLog.create({
+      student_id: student.id,
+      event_type: 'ADMIN_DEVICE_RESET',
+      ip_address: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || 'Unknown',
+      details: {
+        admin_id: req.user ? req.user.id : null,
+        admin_name: req.user ? req.user.name : 'Admin',
+        message: 'Admin cleared device binding'
+      }
+    }).catch(() => {});
+
+    success(res, student, 'Student device binding reset successfully. Student can now log in on a new device.');
+  } catch (err) {
+    error(res, err.message);
+  }
+};
+

@@ -264,6 +264,54 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     IconButton(
+                                      icon: const Icon(Icons.phonelink_erase_rounded, color: Colors.orangeAccent),
+                                      tooltip: 'Reset Device Binding',
+                                      onPressed: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            backgroundColor: const Color(0xFF1E293B),
+                                            title: const Text('Reset Device Binding', style: TextStyle(color: Colors.white)),
+                                            content: Text(
+                                              'Are you sure you want to reset device binding for ${s.name}? They will be able to log in from a new device.',
+                                              style: const TextStyle(color: Colors.grey),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx, false),
+                                                child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                                              ),
+                                              ElevatedButton(
+                                                style: ElevatedButton.styleFrom(backgroundColor: Colors.orangeAccent),
+                                                onPressed: () => Navigator.pop(ctx, true),
+                                                child: const Text('Reset Device', style: TextStyle(color: Colors.black)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (confirm == true) {
+                                          try {
+                                            await provider.resetStudentDevice(s.id);
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Device binding reset for ${s.name}'),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                              );
+                                            }
+                                          }
+                                        }
+                                      },
+                                    ),
+                                    IconButton(
                                       icon: const Icon(Icons.add_task_rounded, color: AppConstants.primaryColor),
                                       tooltip: 'Assign Courses',
                                       onPressed: () => _showAssignCourseDialog(s),

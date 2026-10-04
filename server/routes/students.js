@@ -9,7 +9,8 @@ const {
   createStudentAdmission,
   assignCourses,
   getAssignedCourses,
-  removeAssignedCourse
+  removeAssignedCourse,
+  resetStudentDevice
 } = require('../controllers/studentController');
 const { getStudentPerformance } = require('../controllers/progressController');
 const { protect, authorize } = require('../middleware/auth');
@@ -23,6 +24,7 @@ router.route('/:id')
   .put(authorize('admin', 'super_admin'), updateStudent)
   .delete(authorize('super_admin'), deleteStudent);
 router.patch('/:id/toggle-status', authorize('admin', 'super_admin'), toggleStudentStatus);
+router.post('/:id/reset-device', authorize('admin', 'super_admin'), resetStudentDevice);
 router.get('/:id/performance', authorize('admin', 'super_admin'), getStudentPerformance);
 
 // ─── Admission Management ───────────────────────────────────────────────────

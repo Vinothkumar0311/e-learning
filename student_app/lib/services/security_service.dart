@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,6 @@ import 'package:screen_protector/screen_protector.dart';
 import '../core/network/dio_client.dart';
 
 class SecurityService {
-  static const String _deviceIdKey = 'app_unique_device_id';
   static final SecurityService _instance = SecurityService._internal();
 
   factory SecurityService() => _instance;
@@ -16,48 +16,62 @@ class SecurityService {
   String? _cachedDeviceId;
   String? _cachedDeviceName;
 
+  static const String _deviceIdVersionKey = 'app_unique_device_id_v2';
+
+  /// Generates a cryptographically secure UUID v4
+  String _generateUuidV4() {
+    final random = Random.secure();
+    final values = List<int>.generate(16, (i) => random.nextInt(256));
+    values[6] = (values[6] & 0x0f) | 0x40; // version 4
+    values[8] = (values[8] & 0x3f) | 0x80; // variant
+    return [
+      values.sublist(0, 4).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+      values.sublist(4, 6).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+      values.sublist(6, 8).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+      values.sublist(8, 10).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+      values.sublist(10, 16).map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+    ].join('-');
+  }
+
   /// Retrieves or generates a persistent Unique Device ID
   Future<String> getDeviceId() async {
     if (_cachedDeviceId != null) return _cachedDeviceId!;
 
     final prefs = await SharedPreferences.getInstance();
-    String? storedId = prefs.getString(_deviceIdKey);
+    String? storedId = prefs.getString(_deviceIdVersionKey);
 
-    if (storedId != null && storedId.isNotEmpty) {
+    // If already stored with v2 unique UUID format, use it
+    if (storedId != null && storedId.isNotEmpty && storedId.contains('-')) {
       _cachedDeviceId = storedId;
       return storedId;
     }
 
-    // Try to get hardware ID from device_info_plus
     final deviceInfo = DeviceInfoPlugin();
-    String newId = '';
+    String prefix = 'dev';
+    final uuid = _generateUuidV4();
 
     try {
       if (kIsWeb) {
-        final webInfo = await deviceInfo.webBrowserInfo;
-        newId = 'web_${webInfo.vendor}_${webInfo.userAgent.hashCode}';
+        prefix = 'web';
       } else if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
-        newId = androidInfo.id.isNotEmpty 
-            ? 'android_${androidInfo.id}' 
-            : 'android_${androidInfo.hardware}_${androidInfo.model.hashCode}';
+        final brand = androidInfo.brand.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+        final model = androidInfo.model.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+        prefix = 'and_${brand}_$model';
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
-        newId = iosInfo.identifierForVendor ?? 'ios_${iosInfo.name.hashCode}';
+        final model = iosInfo.model.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toLowerCase();
+        prefix = 'ios_$model';
       } else if (Platform.isLinux) {
-        final linuxInfo = await deviceInfo.linuxInfo;
-        newId = 'linux_${linuxInfo.machineId ?? linuxInfo.name}';
+        prefix = 'linux';
       }
     } catch (e) {
-      debugPrint('Error getting device info: $e');
+      debugPrint('Error getting device info for prefix: $e');
     }
 
-    if (newId.isEmpty) {
-      newId = 'dev_${DateTime.now().millisecondsSinceEpoch}_${(1000 + (DateTime.now().microsecondsSinceEpoch % 9000))}';
-    }
-
+    final newId = '${prefix}_$uuid';
     _cachedDeviceId = newId;
-    await prefs.setString(_deviceIdKey, newId);
+    await prefs.setString(_deviceIdVersionKey, newId);
     return newId;
   }
 
